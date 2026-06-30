@@ -182,11 +182,13 @@ def _classify_issue(report_graph: Graph, validation_result: URIRef) -> dict[str,
     severity_uri = str(report_graph.value(validation_result, SH.resultSeverity) or str(SH.Violation))
     source_shape = report_graph.value(validation_result, SH.sourceShape)
     focus_node = report_graph.value(validation_result, SH.focusNode)
+    result_path = report_graph.value(validation_result, SH.resultPath)
 
     return {
         "source": "metamodel" if _is_aas_shape(report_graph, validation_result) else "ontology",
         "source_shape": str(source_shape) if source_shape is not None else "",
         "focus_node": str(focus_node) if focus_node is not None else "",
+        "result_path": str(result_path) if result_path is not None else "",
         "severity": severity_map.get(severity_uri, "Violation"),
         "message": message,
     }
