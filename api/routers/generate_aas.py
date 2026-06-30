@@ -12,6 +12,7 @@ import base64
 import concurrent.futures
 import json
 import re
+import shutil
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
@@ -59,13 +60,33 @@ class GenerateAasRequest(BaseModel):
     use_example: bool = False
     force_full_aas_output: bool = True
     max_pdf_chars: Optional[int] = 8000
-    max_attempts: int = 2
+    max_attempts: int = 1
 
 
 class GenerationConfigResponse(BaseModel):
     providers: list[str]
     models: dict[str, list[str]]
     defaults: dict
+    # Per-provider readiness so the UI can warn before a wasted generation call.
+    # gemini/groq need a non-empty API key; claude needs the local CLI on PATH.
+    provider_ready: dict[str, bool] = {}
+
+
+def _claude_cli_available() -> bool:
+    """True if the Claude Code CLI (`claude`) is on PATH on the backend host.
+
+    The Claude provider shells out to `claude -p` and uses the CLI's own local
+    auth/session — no API key required — so readiness is just CLI presence.
+    """
+    return shutil.which("claude") is not None
+
+
+def _compute_provider_ready(cfg) -> dict[str, bool]:
+    return {
+        "gemini": bool(getattr(cfg, "gemini_api_key", "")),
+        "groq": bool(getattr(cfg, "groq_api_key", "")),
+        "claude": _claude_cli_available(),
+    }
 
 
 def _extract_xml_opcua_summary(xml_text: str, file_name: str) -> str:
@@ -225,12 +246,15 @@ async def get_generation_config() -> GenerationConfigResponse:
                 "max_pdf_chars": cfg.max_pdf_chars,
                 "max_attempts": cfg.max_attempts,
             },
+            provider_ready=_compute_provider_ready(cfg),
         )
     except Exception:
+        # config.yaml missing / unreadable: only claude (CLI auth) can be ready.
         return GenerationConfigResponse(
             providers=["gemini", "groq", "claude"],
             models={"gemini": [], "groq": [], "claude": []},
             defaults={},
+            provider_ready={"gemini": False, "groq": False, "claude": _claude_cli_available()},
         )
 
 

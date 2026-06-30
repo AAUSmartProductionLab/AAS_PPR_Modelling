@@ -148,9 +148,38 @@ class AASElementFactory:
         return model.SubmodelElementCollection(**kwargs)
 
     @staticmethod
+    def _coerce_mlp_value(text: Any, default_language: str) -> Dict[str, str]:
+        """Normalize the several shapes a multi-language value can arrive in.
+
+        The LLM/profile format uses a plain string, while the UI editor stores
+        MultiLanguageProperty fields as ``[{language, text}, ...]`` arrays. Accept
+        both (plus a ``{lang: text}`` map) so the same builder serves both paths.
+        """
+        if isinstance(text, str):
+            return {default_language: text}
+        if isinstance(text, list):
+            out: Dict[str, str] = {}
+            for item in text:
+                if isinstance(item, dict):
+                    lang = item.get("language") or item.get("lang") or default_language
+                    val = item.get("text", item.get("value", ""))
+                    if val != "" and val is not None:
+                        out[str(lang)] = str(val)
+                elif isinstance(item, str) and item:
+                    out[default_language] = item
+            return out or {default_language: ""}
+        if isinstance(text, dict):
+            # Single {language, text} object, or an already-built {lang: text} map.
+            if "text" in text or "language" in text:
+                lang = text.get("language") or default_language
+                return {str(lang): str(text.get("text", ""))}
+            return {str(k): str(v) for k, v in text.items()}
+        return {default_language: str(text)}
+
+    @staticmethod
     def create_multi_language_property(
         id_short: str,
-        text: str,
+        text: Any,
         language: str = "en",
         semantic_id: Optional[model.ExternalReference] = None
     ) -> model.MultiLanguageProperty:
@@ -159,8 +188,9 @@ class AASElementFactory:
 
         Args:
             id_short: Property identifier
-            text: Property text
-            language: Language code
+            text: Property text — a plain string, an ``[{language, text}]`` array
+                  (UI editor shape), or a ``{lang: text}`` map.
+            language: Default language code when none is carried by ``text``.
             semantic_id: Optional semantic ID
 
         Returns:
@@ -169,7 +199,9 @@ class AASElementFactory:
         _require_semantic_id(id_short, semantic_id)
         kwargs = {
             'id_short': id_short,
-            'value': model.MultiLanguageTextType({language: text})
+            'value': model.MultiLanguageTextType(
+                AASElementFactory._coerce_mlp_value(text, language)
+            )
         }
 
         if semantic_id:

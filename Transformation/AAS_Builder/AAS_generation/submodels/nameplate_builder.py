@@ -78,6 +78,10 @@ class DigitalNameplateSubmodelBuilder:
             or nameplate_config.get("ContactInformation")
             or {}
         )
+        # The UI sends AddressInformation as a structured object; tolerate a stray
+        # scalar (e.g. a single free-text address) without crashing the build.
+        if not isinstance(contact_config, dict):
+            contact_config = {}
         _address_sids = {
             "Street":       self.semantic_factory.NP_ADDRESS_STREET,
             "ZipCode":      self.semantic_factory.NP_ADDRESS_ZIPCODE,
