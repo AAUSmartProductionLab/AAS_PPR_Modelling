@@ -117,6 +117,14 @@ class SkillsSubmodelBuilder:
 
         return submodel
 
+    # Per-category default prefixes to prevent AASd-022 idShort collisions
+    # when both input and output variables lack explicit names.
+    _VAR_PREFIX = {
+        'input_variable':    'In',
+        'output_variable':   'Out',
+        'inoutput_variable': 'InOut',
+    }
+
     @staticmethod
     def _normalize_skill_data(skill_data: Dict) -> Dict:
         """Convert UI-style variable arrays to backend-style dicts.
@@ -125,6 +133,10 @@ class SkillsSubmodelBuilder:
         ``inoutputVariables`` as arrays of ``{idShort, valueType, description}``.
         The builder expects ``input_variable`` / ``output_variable`` as dicts
         mapping name → type.  This normalises both shapes.
+
+        Default idShorts use distinct prefixes (``In`` / ``Out`` / ``InOut``)
+        so that input and output variables with the same index don't collide
+        inside a single Operation (BaSyx constraint AASd-022).
         """
         normalized = dict(skill_data)
 
@@ -135,8 +147,9 @@ class SkillsSubmodelBuilder:
         ]:
             arr = normalized.pop(ui_key, None)
             if arr and isinstance(arr, list) and not normalized.get(backend_key):
+                prefix = SkillsSubmodelBuilder._VAR_PREFIX.get(backend_key, 'Var')
                 normalized[backend_key] = {
-                    v.get('idShort', f'var{i}'): v.get('valueType', 'string')
+                    v.get('idShort', f'{prefix}{i + 1}'): v.get('valueType', 'string')
                     for i, v in enumerate(arr) if isinstance(v, dict)
                 }
 
