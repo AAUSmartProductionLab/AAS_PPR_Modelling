@@ -26,12 +26,12 @@ submodels:
 # -- Options ----------------------------------------------------------------
 options:
   generation_mode: json-description   # "json" (direct AAS JSON) or "json-description" (profile JSON -> AAS JSON)
-  profile_example_path: "aas_configs/imaDispensing.yaml"  # optional source template for dynamic profile example assembly
+  profile_example_path: "aas_configs/imaDispensing.json"  # optional source template for dynamic profile example assembly (JSON; .yaml still supported)
   use_rag: false          # load files from Generation/Context_Builder/RAG/
   use_example: false      # include valid-example.json (~4k tokens, disable on Groq free tier)
   force_full_aas_output: true  # save converted full AAS JSON even when profile validation fails
   max_pdf_chars: 8000     # truncate extracted PDF text; null = no limit (use null for Gemini)
-  max_attempts: 2         # max generation+validation attempts (1 retry)
+  max_attempts: 1         # generation+validation attempts (1 = no retry loop; cheap for testing)
 
 # -- Models (tried in order on 429) -----------------------------------------
 models:
