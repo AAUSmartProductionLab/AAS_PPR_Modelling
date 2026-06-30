@@ -324,6 +324,24 @@ class AASGenerator:
             return obj_store, aas_dict
         return aas_dict
 
+    def build_aas_dict(self, apply_guidance: bool = False) -> Dict:
+        """Build the full AAS Environment dict from the loaded profile config.
+
+        This is the canonical projection used by the manual-modelling validation
+        path: the UI sends its profile, the server builds the AAS with these
+        SDK-based builders (which attach the IDTA/ARSO semanticIds the SHACL
+        shapes require) and validates the result.
+
+        apply_guidance=False (default) keeps validation honest — it reflects what
+        the user actually modelled, without the imperative auto-fixes
+        (auto-create Skills/Capabilities, fill semantic ids). Those repairs are
+        offered separately via /api/guidance.
+        """
+        if apply_guidance:
+            self._ensure_ontology_guidance()
+        obj_store = self._build_object_store()
+        return self._serialize_to_dict(obj_store)
+
     def validate_generated_aas(self, obj_store: model.DictObjectStore, context: str = "") -> bool:
         """
         Legacy compatibility method for validation.
@@ -362,7 +380,26 @@ class AASGenerator:
 
         self._guidance_applied = True
 
-    def _apply_ontology_guidance(self, config: Dict) -> List[Dict[str, Any]]:
+    def compute_guidance(self, actionable_only: bool = True) -> List[Dict[str, Any]]:
+        """Public entry point: return ontology-guided suggestions for this config.
+
+        Wraps :meth:`_apply_ontology_guidance` so callers (e.g. the /api/guidance
+        endpoint) get the structured one-click fixes without printing. By default
+        only *actionable* suggestions (auto-create / fill / add, each carrying a
+        ``proposed_value``) are returned and the expensive SHACL "hint" pass is
+        skipped — those diagnostics are already served by /api/validate.
+
+        Note: like ``_apply_ontology_guidance`` this mutates ``self.system_config``
+        in place; the generator is expected to be single-use per request.
+        """
+        suggestions = self._apply_ontology_guidance(
+            self.system_config, compute_hints=not actionable_only
+        )
+        if actionable_only:
+            return [s for s in suggestions if s["action"] != "hint"]
+        return suggestions
+
+    def _apply_ontology_guidance(self, config: Dict, compute_hints: bool = True) -> List[Dict[str, Any]]:
         """Apply ontology-aligned dependency and semantic guidance before building.
 
         Returns a list of structured suggestion dicts, each with:
@@ -407,7 +444,8 @@ class AASGenerator:
             scaffold: Dict[str, Any] = {
                 'InterfaceMQTT': {
                     'Title': config.get('idShort', self.system_id),
-                    'InteractionMetadata': {'actions': {}, 'properties': {}},
+                    'protocol': 'MQTT',
+                    'InteractionMetadata': {'actions': {}, 'properties': {}, 'events': {}},
                 }
             }
             config['AID'] = scaffold
@@ -418,11 +456,18 @@ class AASGenerator:
                 scaffold,
             )
 
-        interaction = ((config.get('AID') or {})
-                       .get('InterfaceMQTT', {})
-                       .get('InteractionMetadata', {}))
-        actions = interaction.get('actions', {}) if isinstance(
-            interaction.get('actions', {}), dict) else {}
+        # Collect actions from ALL interfaces (not just MQTT)
+        from ..submodels.asset_interfaces_builder import AssetInterfacesBuilder
+        aid_config = config.get('AID') or {}
+        aid_entries = AssetInterfacesBuilder._detect_interface_entries(aid_config)
+        actions: Dict[str, Dict] = {}
+        for _canonical, _user, iface_cfg in aid_entries:
+            im = iface_cfg.get('InteractionMetadata', {}) or {}
+            a = im.get('actions', {}) or {}
+            if isinstance(a, dict):
+                for name, cfg in a.items():
+                    if name not in actions:
+                        actions[name] = cfg
 
         # ── Auto-fix: derive Skills from AID actions when absent ─────────────
         if not skills_cfg and actions:
@@ -508,68 +553,73 @@ class AASGenerator:
         # ── Ontology-driven hints: run the real SHACL validator on the built AAS ─
         # Build the AAS from the (now enriched) config and validate it with the
         # same shapes used by /api/validate. No constraint logic is duplicated here.
-        try:
-            from Guidance.ontology_guidance_engine import check_aas
-            obj_store = self._build_object_store()
-            aas_dict = self._serialize_to_dict(obj_store)
-            suggestions.extend(check_aas(json.dumps(aas_dict)))
-        except Exception:
-            pass  # builder/validator unavailable — hints unavailable
+        # Skipped when only the imperative one-click fixes are wanted (the SHACL
+        # diagnostics are already served by /api/validate).
+        if compute_hints:
+            try:
+                from Guidance.ontology_guidance_engine import check_aas
+                obj_store = self._build_object_store()
+                aas_dict = self._serialize_to_dict(obj_store)
+                suggestions.extend(check_aas(json.dumps(aas_dict)))
+            except Exception:
+                pass  # builder/validator unavailable — hints unavailable
 
         return suggestions
 
     def _extract_interface_properties(self) -> List[Dict]:
         """
-        Extract interface properties with output schema URLs from config.
+        Extract interface properties with output schema URLs from ALL interfaces.
 
         These are used for schema-driven field extraction in Variables submodel.
 
         Returns:
             List of property dicts with name and schema URL (from output field)
         """
-        interface_config = self.system_config.get('AID', {}) or self.system_config.get(
-            'AssetInterfacesDescription', {}) or {}
-        mqtt_config = interface_config.get('InterfaceMQTT', {}) or {}
-        interaction_config = mqtt_config.get('InteractionMetadata', {}) or {}
-        properties_dict = interaction_config.get('properties', {}) or {}
-
         properties = []
-        # Handle dict format: { PropName: {...}, ... }
-        for prop_name, prop_config in properties_dict.items():
-            if isinstance(prop_config, dict):
-                properties.append({
-                    'name': prop_name,
-                    'schema': prop_config.get('output')
-                })
-
+        for _iface_key, iface_config in self._iter_interfaces():
+            interaction = iface_config.get('InteractionMetadata', {}) or {}
+            props = interaction.get('properties', {}) or {}
+            for prop_name, prop_config in props.items():
+                if isinstance(prop_config, dict):
+                    properties.append({
+                        'name': prop_name,
+                        'schema': prop_config.get('output')
+                    })
         return properties
 
     def _extract_interface_input_properties(self) -> List[Dict]:
         """
-        Extract interface properties with input schema URLs from config.
+        Extract interface properties with input schema URLs from ALL interfaces.
 
         These are used for schema-driven field extraction in Parameters submodel.
-        Parameters use 'input' schemas (for writable values).
 
         Returns:
             List of property dicts with name and schema URL (from input field)
         """
+        properties = []
+        for _iface_key, iface_config in self._iter_interfaces():
+            interaction = iface_config.get('InteractionMetadata', {}) or {}
+            props = interaction.get('properties', {}) or {}
+            for prop_name, prop_config in props.items():
+                if isinstance(prop_config, dict):
+                    properties.append({
+                        'name': prop_name,
+                        'schema': prop_config.get('input')
+                    })
+        return properties
+
+    def _iter_interfaces(self):
+        """Iterate over all detected interface entries in the AID config.
+
+        Yields (iface_key, iface_config) for each interface found by the
+        AssetInterfacesBuilder detection logic.
+        """
+        from ..submodels.asset_interfaces_builder import AssetInterfacesBuilder
         interface_config = self.system_config.get('AID', {}) or self.system_config.get(
             'AssetInterfacesDescription', {}) or {}
-        mqtt_config = interface_config.get('InterfaceMQTT', {}) or {}
-        interaction_config = mqtt_config.get('InteractionMetadata', {}) or {}
-        properties_dict = interaction_config.get('properties', {}) or {}
-
-        properties = []
-        # Handle dict format: { PropName: {...}, ... }
-        for prop_name, prop_config in properties_dict.items():
-            if isinstance(prop_config, dict):
-                properties.append({
-                    'name': prop_name,
-                    'schema': prop_config.get('input')
-                })
-
-        return properties
+        entries = AssetInterfacesBuilder._detect_interface_entries(interface_config)
+        for canonical_key, _user_key, iface_cfg in entries:
+            yield canonical_key, iface_cfg
 
     def _build_object_store(self) -> model.DictObjectStore:
         """

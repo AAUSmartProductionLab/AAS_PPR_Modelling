@@ -26,12 +26,24 @@ export function ParametersForm() {
   const systemId = Object.keys(parsedProfile)[0];
   const parameters = parsedProfile[systemId]?.Parameters ?? {};
 
+  // Collect AID property names for the InterfaceReference dropdown
+  const aid = (parsedProfile[systemId]?.AID ?? {}) as Record<string, any>;
+  const aidProperties: string[] = [];
+  for (const iface of Object.values(aid)) {
+    if (iface && typeof iface === 'object') {
+      const props = iface?.InteractionMetadata?.properties ?? {};
+      for (const pName of Object.keys(props)) {
+        if (!aidProperties.includes(pName)) aidProperties.push(pName);
+      }
+    }
+  }
+
   const baseUrl = deriveBaseUrl(identityId);
   const metaId = (parsedProfile[systemId] as any)?._meta?.Parameters?.id ?? `${baseUrl}/submodels/instances/${identitySystemId}/Parameters`;
   const metaSemanticId = (parsedProfile[systemId] as any)?._meta?.Parameters?.semanticId ?? PARAMETERS_SUBMODEL;
 
   const update = (paramName: string, field: keyof Parameter, value: string) => {
-    updateProfileField([systemId, 'Parameters', paramName, field], value);
+    updateProfileField([systemId, 'Parameters', paramName, field], value || undefined);
   };
 
   const addParam = () => {
@@ -66,51 +78,89 @@ export function ParametersForm() {
       </div>
 
       {Object.keys(parameters).length === 0 && (
-        <p className="empty-state">No parameters defined.</p>
+        <p className="empty-state">
+          No parameters defined. Add one or link to AID properties via InterfaceReference.
+        </p>
       )}
 
-      <table className="param-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Value</th>
-            <th>Unit</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(parameters).map(([paramName, param]) => (
-            <tr key={paramName}>
-              <td>
-                <code className="param-name">{paramName}</code>
-              </td>
-              <td>
+      {Object.entries(parameters).map(([paramName, param]) => (
+        <div key={paramName} className="card">
+          <div className="card__header">
+            <strong>{paramName}</strong>
+            <button
+              className="btn btn--xs btn--danger"
+              onClick={() => removeParam(paramName)}
+            >
+              ✕
+            </button>
+          </div>
+          <div className="card__body">
+            <div className="field-grid field-grid--2col">
+              <div className="field-group">
+                <label className="field-label">ParameterValue</label>
                 <input
-                  className="field-input field-input--sm"
+                  className="field-input"
                   value={param?.ParameterValue ?? ''}
                   onChange={(e) => update(paramName, 'ParameterValue', e.target.value)}
                 />
-              </td>
-              <td>
+              </div>
+              <div className="field-group">
+                <label className="field-label">Unit</label>
                 <input
-                  className="field-input field-input--sm"
+                  className="field-input"
                   value={param?.Unit ?? ''}
                   placeholder="unit"
                   onChange={(e) => update(paramName, 'Unit', e.target.value)}
                 />
-              </td>
-              <td>
-                <button
-                  className="btn btn--xs btn--danger"
-                  onClick={() => removeParam(paramName)}
-                >
-                  ✕
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+              <div className="field-group">
+                <label className="field-label">Semantic ID</label>
+                <input
+                  className="field-input"
+                  value={param?.semanticId ?? ''}
+                  placeholder="https://..."
+                  onChange={(e) => update(paramName, 'semanticId', e.target.value)}
+                />
+              </div>
+              <div className="field-group">
+                <label className="field-label">
+                  InterfaceReference <span className="field-hint">(AID property to write to)</span>
+                </label>
+                {aidProperties.length > 0 ? (
+                  <select
+                    className="field-input"
+                    value={param?.InterfaceReference ?? ''}
+                    onChange={(e) => update(paramName, 'InterfaceReference', e.target.value)}
+                  >
+                    <option value="">— none —</option>
+                    {aidProperties.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className="field-input"
+                    value={param?.InterfaceReference ?? ''}
+                    placeholder="No AID properties defined yet"
+                    onChange={(e) => update(paramName, 'InterfaceReference', e.target.value)}
+                  />
+                )}
+              </div>
+              <div className="field-group">
+                <label className="field-label">
+                  Field <span className="field-hint">(optional: extract single input schema field)</span>
+                </label>
+                <input
+                  className="field-input"
+                  value={param?.Field ?? ''}
+                  placeholder="e.g. targetPosition"
+                  onChange={(e) => update(paramName, 'Field', e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -59,6 +59,8 @@ export interface SubmodelDef {
   required?: boolean;
   /** Build the full AAS Submodel from the profile section. */
   build: (ctx: BuildContext) => AasSubmodel;
+  /** Hide from catalog UI (backend not yet implemented). */
+  hidden?: boolean;
 }
 
 // Typed casts mirror the original buildSubmodels call sites.
@@ -167,6 +169,7 @@ export const SUBMODELS: Record<SubmodelKey, SubmodelDef> = {
     description: 'Maps AID affordances to Variables, Skills, Parameters',
     color: '#6ee7b7',
     aasTypes: ['Resource'],
+    hidden: true,
     build: (c) => buildAIMCSubmodel(c.baseUrl, c.systemId, (c.section ?? {}) as AIMCArg, c.meta),
   },
 };
@@ -174,9 +177,9 @@ export const SUBMODELS: Record<SubmodelKey, SubmodelDef> = {
 /** Submodel keys in canonical display order. */
 export const SUBMODEL_KEYS = Object.keys(SUBMODELS) as SubmodelKey[];
 
-/** Keys whose submodel applies to the given AAS type, in display order. */
+/** Keys whose submodel applies to the given AAS type, in display order, excluding hidden entries. */
 export function submodelKeysForType(aasType: AASType): SubmodelKey[] {
-  return SUBMODEL_KEYS.filter((k) => SUBMODELS[k].aasTypes.includes(aasType));
+  return SUBMODEL_KEYS.filter((k) => SUBMODELS[k].aasTypes.includes(aasType) && !SUBMODELS[k].hidden);
 }
 
 /** Keys that are always present on a new AAS (required), in display order. */

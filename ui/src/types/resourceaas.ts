@@ -124,11 +124,22 @@ export interface AIDFormResponse {
 
 export interface Variable {
   semanticId: string;
+  /** References an AID property by its key name (e.g. 'stationState'). */
+  InterfaceReference?: string;
+  /** Optional: extract only this field from the referenced schema. */
+  Field?: string;
+  /** Additional data key-value pairs for schema-driven variable data. */
+  [dataField: string]: string | undefined;
 }
 
 export interface Parameter {
   ParameterValue: string;
   Unit?: string;
+  semanticId?: string;
+  /** References an AID property by its key name. */
+  InterfaceReference?: string;
+  /** Optional: extract only this field from the referenced input schema. */
+  Field?: string;
 }
 
 export interface BomEntity {

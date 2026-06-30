@@ -38,7 +38,7 @@ class SkillsSubmodelBuilder:
         a reference to its corresponding action interface.
 
         The operations are generated from:
-        - Explicit Skills configuration in YAML (if provided)
+        - Explicit Skills configuration (if provided)
         - OR automatically from action interfaces in AssetInterfacesDescription
 
         Args:
@@ -48,36 +48,53 @@ class SkillsSubmodelBuilder:
         Returns:
             Skills submodel with Operations wrapped in SubmodelElementCollections
         """
-        skills_config = config.get('Skills', {}) or {}
-        if isinstance(skills_config, list):
-            skills_config = {item['name']: item for item in skills_config if isinstance(item, dict) and 'name' in item}
+        skills_config_raw = config.get('Skills', {}) or {}
+        skills_config = {}
+        if isinstance(skills_config_raw, list):
+            skills_config = {item['name']: item for item in skills_config_raw if isinstance(item, dict) and 'name' in item}
+        elif isinstance(skills_config_raw, dict):
+            skills_config = skills_config_raw
+
         skill_elements = []
 
-        # Get action interfaces from AID — detect interface type automatically
+        # Collect all actions from ALL AID interfaces (not just the first MQTT one)
+        from .asset_interfaces_builder import AssetInterfacesBuilder
         interface_config = config.get('AID', {}) or config.get(
             'AssetInterfacesDescription', {}) or {}
-        _iface_keys = ('InterfaceMQTT', 'InterfaceOPCUA', 'InterfaceHTTP')
-        iface_id_short = next((k for k in _iface_keys if k in interface_config), 'InterfaceMQTT')
-        iface_config = interface_config.get(iface_id_short, {}) or {}
-        interaction_metadata = iface_config.get('InteractionMetadata', {}) or {}
-        actions = interaction_metadata.get('actions', {}) or {}
+        entries = AssetInterfacesBuilder._detect_interface_entries(interface_config)
 
-        # Actions is already a dict with action names as keys
-        action_map = actions
+        # Build a merged action_map and a canonical_iface lookup: action_name → iface_id_short
+        action_map: Dict[str, Dict] = {}
+        action_to_iface: Dict[str, str] = {}
+        for canonical_key, _user_key, iface_cfg in entries:
+            interaction = iface_cfg.get('InteractionMetadata', {}) or {}
+            actions = interaction.get('actions', {}) or {}
+            if isinstance(actions, dict):
+                for action_name, action_cfg in actions.items():
+                    if action_name not in action_map:
+                        action_map[action_name] = action_cfg
+                        action_to_iface[action_name] = canonical_key
 
         # If explicit Skills are configured, use them
         if skills_config:
             for skill_name, skill_data in skills_config.items():
                 if not isinstance(skill_data, dict):
                     skill_data = {"description": str(skill_data)}
+
+                # Normalise UI-style variable arrays → backend-style dicts
+                skill_data = self._normalize_skill_data(skill_data)
+
+                # Determine which interface this skill's action lives in
+                interface_name = skill_data.get('interface', skill_name)
+                skill_iface = action_to_iface.get(interface_name, 'InterfaceMQTT')
+
                 skill_collection = self._create_skill_collection(
-                    skill_name, skill_data, action_map, system_id, iface_id_short
+                    skill_name, skill_data, action_map, system_id, skill_iface
                 )
                 if skill_collection:
                     skill_elements.append(skill_collection)
 
         # CCType requires exactly one Interfaces, Skills, and Errors container
-        # at the submodel level (cardinality 1 each, may be empty).
         interfaces_smc = self.element_factory.create_collection(
             id_short="Interfaces", elements=[]
         )
@@ -88,7 +105,6 @@ class SkillsSubmodelBuilder:
             id_short="Errors", elements=[]
         )
 
-        # Create submodel
         submodel = model.Submodel(
             id_=f"{self.base_url}/submodels/instances/{system_id}/Skills",
             id_short="Skills",
@@ -100,6 +116,31 @@ class SkillsSubmodelBuilder:
         )
 
         return submodel
+
+    @staticmethod
+    def _normalize_skill_data(skill_data: Dict) -> Dict:
+        """Convert UI-style variable arrays to backend-style dicts.
+
+        The UI form writes ``inputVariables`` / ``outputVariables`` /
+        ``inoutputVariables`` as arrays of ``{idShort, valueType, description}``.
+        The builder expects ``input_variable`` / ``output_variable`` as dicts
+        mapping name → type.  This normalises both shapes.
+        """
+        normalized = dict(skill_data)
+
+        for ui_key, backend_key in [
+            ('inputVariables', 'input_variable'),
+            ('outputVariables', 'output_variable'),
+            ('inoutputVariables', 'inoutput_variable'),
+        ]:
+            arr = normalized.pop(ui_key, None)
+            if arr and isinstance(arr, list) and not normalized.get(backend_key):
+                normalized[backend_key] = {
+                    v.get('idShort', f'var{i}'): v.get('valueType', 'string')
+                    for i, v in enumerate(arr) if isinstance(v, dict)
+                }
+
+        return normalized
 
     def _create_skill_collection(self, skill_name: str, skill_data: Dict,
                                  action_map: Dict, system_id: str,
@@ -296,7 +337,7 @@ class SkillsSubmodelBuilder:
                 model.Qualifier(
                     type_="Synchronous",
                     value_type=model.datatypes.Boolean,
-                    value="true",
+                    value=True,
                     kind=model.QualifierKind.CONCEPT_QUALIFIER
                 )
             ])

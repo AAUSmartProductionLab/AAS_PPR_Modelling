@@ -40,6 +40,18 @@ export function SkillsForm() {
   const systemId = Object.keys(parsedProfile)[0];
   const skills = parsedProfile[systemId]?.Skills ?? {};
 
+  // Collect all AID action names for the interface selector
+  const aid = (parsedProfile[systemId]?.AID ?? {}) as Record<string, any>;
+  const aidActions: string[] = [];
+  for (const iface of Object.values(aid)) {
+    if (iface && typeof iface === 'object') {
+      const actions = iface?.InteractionMetadata?.actions ?? {};
+      for (const actionName of Object.keys(actions)) {
+        if (!aidActions.includes(actionName)) aidActions.push(actionName);
+      }
+    }
+  }
+
   const baseUrl = deriveBaseUrl(identityId);
   const metaId = (parsedProfile[systemId] as any)?._meta?.Skills?.id ?? `${baseUrl}/submodels/instances/${identitySystemId}/Skills`;
   const metaSemanticId = (parsedProfile[systemId] as any)?._meta?.Skills?.semanticId ?? SKILLS_SUBMODEL;
@@ -141,6 +153,30 @@ export function SkillsForm() {
                   value={skill?.description ?? ''}
                   onChange={(e) => update(skillName, 'description', e.target.value)}
                 />
+              </div>
+              <div className="field-group">
+                <label className="field-label">
+                  Interface <span className="field-hint">(AID action this skill invokes)</span>
+                </label>
+                {aidActions.length > 0 ? (
+                  <select
+                    className="field-input"
+                    value={skill?.interface ?? ''}
+                    onChange={(e) => update(skillName, 'interface', e.target.value)}
+                  >
+                    <option value="">— default: skill name —</option>
+                    {aidActions.map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className="field-input"
+                    value={skill?.interface ?? ''}
+                    placeholder="No AID actions defined yet"
+                    onChange={(e) => update(skillName, 'interface', e.target.value)}
+                  />
+                )}
               </div>
               <div className="field-group">
                 <label className="field-label">
