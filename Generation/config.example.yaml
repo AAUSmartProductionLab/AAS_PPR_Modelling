@@ -1,0 +1,60 @@
+# ==============================================================================
+#  AAS Generation Configuration — TEMPLATE
+#  Copy this file to "config.yaml" (same folder) and fill in your API keys.
+#  config.yaml is gitignored; this template is safe to commit.
+# ==============================================================================
+
+provider: groq          # "gemini", "groq" or "claude"
+
+api_keys:
+  google_ai_studio: "YOUR_GOOGLE_AI_STUDIO_KEY"   # https://aistudio.google.com/apikey
+  groq: "YOUR_GROQ_KEY"                           # https://console.groq.com
+  anthropic: ""         # optional; Claude Code CLI can use its own local auth
+
+# -- Asset ------------------------------------------------------------------
+asset:
+  name: "CA18CLC12BPM1"
+  base_url: "https://smartproductionlab.aau.dk"
+  # Absolute path to the component datasheet PDF, or null for text-only mode.
+  pdf_path: null
+
+# Submodels to generate (Nameplate + HierarchicalStructures always included)
+submodels:
+  - Nameplate
+  - HierarchicalStructures
+
+# -- Options ----------------------------------------------------------------
+options:
+  generation_mode: json-description   # "json" (direct AAS JSON) or "json-description" (profile JSON -> AAS JSON)
+  profile_example_path: "aas_configs/imaDispensing.yaml"  # optional source template for dynamic profile example assembly
+  use_rag: false          # load files from Generation/Context_Builder/RAG/
+  use_example: false      # include valid-example.json (~4k tokens, disable on Groq free tier)
+  force_full_aas_output: true  # save converted full AAS JSON even when profile validation fails
+  max_pdf_chars: 8000     # truncate extracted PDF text; null = no limit (use null for Gemini)
+  max_attempts: 2         # max generation+validation attempts (1 retry)
+
+# -- Models (tried in order on 429) -----------------------------------------
+models:
+  gemini:
+    - gemini-3.1-flash-lite-preview
+    - gemini-2.5-pro
+    - gemini-3-flash-preview
+    - gemini-2.5-flash
+    - gemini-2.5-flash-lite
+    - gemini-2.0-flash
+    - gemini-2.0-flash-lite
+  groq:
+    - llama-3.3-70b-versatile
+    - qwen/qwen3-32b
+    - llama-3.1-8b-instant
+    - openai/gpt-oss-120b
+    - openai/gpt-oss-20b
+  claude:
+    - claude-sonnet-4-6
+    - claude-opus-4-6
+    - claude-haiku-4-5-20251001
+
+# -- Output -----------------------------------------------------------------
+output:
+  json_file: "Generation/output/aas_output.json"
+  issues_file: "Generation/output/aas_issues.json"
