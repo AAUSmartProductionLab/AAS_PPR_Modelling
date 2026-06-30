@@ -600,7 +600,7 @@ class AssetInterfacesBuilder:
         return self.element_factory.create_collection(
             id_short="events",
             elements=event_elements,
-            semantic_id=self.semantic_factory.WOT_EVENT_AFFORDANCE
+            semantic_id=getattr(self.semantic_factory, 'WOT_EVENT_AFFORDANCE', None)
         )
 
     def _create_modbus_endpoint_metadata(self, modbus_config: Dict) -> Optional[model.SubmodelElementCollection]:

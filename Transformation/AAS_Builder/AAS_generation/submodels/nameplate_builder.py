@@ -47,6 +47,8 @@ class DigitalNameplateSubmodelBuilder:
             "ManufacturerName",
             config.get("manufacturerName", "Unknown Manufacturer"),
         )
+        if not manufacturer_name or not str(manufacturer_name).strip():
+            manufacturer_name = "Unknown Manufacturer"
         elements.append(
             self.element_factory.create_multi_language_property(
                 id_short="ManufacturerName",
@@ -60,6 +62,8 @@ class DigitalNameplateSubmodelBuilder:
             "ManufacturerProductDesignation",
             config.get("manufacturerProductDesignation", config.get("idShort", system_id)),
         )
+        if not product_designation or not str(product_designation).strip():
+            product_designation = config.get("idShort", system_id)
         elements.append(
             self.element_factory.create_multi_language_property(
                 id_short="ManufacturerProductDesignation",
