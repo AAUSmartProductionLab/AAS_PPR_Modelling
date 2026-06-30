@@ -30,6 +30,13 @@ class AASElementFactory:
     """Factory for creating AAS elements with consistent patterns."""
 
     @staticmethod
+    def _safe_mlt(text: Optional[str]) -> model.MultiLanguageTextType:
+        """Wrap a string in a MultiLanguageTextType, guarding against empty values."""
+        if not text or not str(text).strip():
+            text = "[empty]"
+        return model.MultiLanguageTextType({"en": str(text)})
+
+    @staticmethod
     def create_property(
         id_short: str,
         value: Any,
@@ -73,8 +80,7 @@ class AASElementFactory:
             kwargs['semantic_id'] = semantic_id
 
         if description:
-            kwargs['description'] = model.MultiLanguageTextType(
-                {"en": description})
+            kwargs['description'] = AASElementFactory._safe_mlt(description)
 
         return model.Property(**kwargs)
 
@@ -142,8 +148,7 @@ class AASElementFactory:
             kwargs['supplemental_semantic_id'] = supplemental_semantic_ids
 
         if description:
-            kwargs['description'] = model.MultiLanguageTextType(
-                {"en": description})
+            kwargs['description'] = AASElementFactory._safe_mlt(description)
 
         return model.SubmodelElementCollection(**kwargs)
 
@@ -281,8 +286,7 @@ class AASElementFactory:
             kwargs['supplemental_semantic_id'] = supplemental_semantic_ids
 
         if description:
-            kwargs['description'] = model.MultiLanguageTextType(
-                {"en": description})
+            kwargs['description'] = AASElementFactory._safe_mlt(description)
 
         return model.ReferenceElement(**kwargs)
 
@@ -414,8 +418,7 @@ class AASElementFactory:
             kwargs['qualifier'] = tuple(qualifiers)
 
         if description:
-            kwargs['description'] = model.MultiLanguageTextType(
-                {"en": description})
+            kwargs['description'] = AASElementFactory._safe_mlt(description)
 
         return model.Operation(**kwargs)
 

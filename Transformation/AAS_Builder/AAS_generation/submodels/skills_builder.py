@@ -276,6 +276,8 @@ class SkillsSubmodelBuilder:
 
         # Get description from action title or key
         description = action_config.get('title', action_name)
+        if not description or not str(description).strip():
+            description = action_name
 
         # Create semantic ID from action name
         semantic_id = self.semantic_factory.create_skill_semantic_id(
@@ -285,7 +287,7 @@ class SkillsSubmodelBuilder:
         qualifiers = self._create_operation_qualifiers(
             action_config, system_id, action_name)
 
-        # Use element factory to create the operation
+        # Use element factory to create the operation (safe_mlt handles empty desc)
         return self.element_factory.create_operation(
             id_short=action_name,
             input_vars=input_variables if input_variables else None,
@@ -342,12 +344,13 @@ class SkillsSubmodelBuilder:
                 )
             ])
 
+        raw_desc = skill_data.get('description', f'Operation for {skill_name}')
+        safe_desc = raw_desc if raw_desc and str(raw_desc).strip() else f'Operation for {skill_name}'
         return model.Operation(
             id_short=skill_name,
             input_variable=input_variables if input_variables else (),
             output_variable=output_variables if output_variables else (),
-            description=model.MultiLanguageTextType(
-                {"en": skill_data.get('description', f'Operation for {skill_name}')}),
+            description=model.MultiLanguageTextType({"en": safe_desc}),
             qualifier=qualifiers if qualifiers else ()
         )
 
@@ -468,7 +471,7 @@ class SkillsSubmodelBuilder:
                 "en": "Current state of the asynchronous operation. "
                       "Values: IDLE, RUNNING, SUCCESS, FAILURE. "
                       "Poll this property to monitor operation progress."
-            })
+            })  # safe: hardcoded non-empty string
         )
 
     def _create_interface_reference(self, interface_name: str, system_id: str,
@@ -509,5 +512,5 @@ class SkillsSubmodelBuilder:
                 model.SubmodelElementCollection
             ),
             description=model.MultiLanguageTextType(
-                {"en": f"Reference to {interface_name} action interface"})
+                {"en": f"Reference to {interface_name or 'unknown'} action interface"})
         )
