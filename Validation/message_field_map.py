@@ -49,3 +49,55 @@ def map_message_to_field(message: str) -> str:
         if pattern.search(message):
             return field
     return ""
+
+
+# Submodel idShort aliases → the canonical profile/UI key. The AAS-to-RDF
+# projection names a submodel node by its idShort, which is not always the same
+# token the editor/profile uses for the section (e.g. the Variables section is
+# emitted as the "OperationalData" submodel).
+_SUBMODEL_IDSHORT_ALIASES: dict[str, str] = {
+    "Nameplate": "DigitalNameplate",
+}
+
+
+def field_from_focus_node(focus_node: str) -> str:
+    """Derive the submodel (+ element) a violation sits on, from its focus-node IRI.
+
+    SHACL focus nodes from the projection look like::
+
+        .../submodels/instances/<systemId>/<SubmodelIdShort>[#<elementPath>]
+
+    The submodel idShort is a language-independent field anchor that is present
+    even when no message pattern matches. When the focus node points at a nested
+    element, the leading element name is appended as ``Submodel.Element``.
+    Returns '' if the IRI carries no usable submodel segment.
+    """
+    if not focus_node:
+        return ""
+    head, _, fragment = focus_node.partition("#")
+    submodel = head.rstrip("/").split("/")[-1]
+    if not submodel:
+        return ""
+    submodel = _SUBMODEL_IDSHORT_ALIASES.get(submodel, submodel)
+    if fragment:
+        elem = fragment.split("/")[0]
+        if elem:
+            return f"{submodel}.{elem}"
+    return submodel
+
+
+def map_issue_to_field(message: str, focus_node: str = "", result_path: str = "") -> str:
+    """Best field anchor for a SHACL issue.
+
+    Prefers the curated message→field patterns (they encode domain knowledge and
+    are often more specific than the structural location), then falls back to the
+    focus-node IRI, which is language-independent and present for element-level
+    violations. ``result_path`` is accepted for completeness but is intentionally
+    not used for anchoring: SHACL result paths are generic AAS-metamodel
+    properties (``Submodel/submodelElements``, ``Entity/statements``, …) that do
+    not identify the submodel or field.
+    """
+    field = map_message_to_field(message)
+    if field:
+        return field
+    return field_from_focus_node(focus_node)
