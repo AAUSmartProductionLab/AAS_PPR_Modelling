@@ -156,6 +156,8 @@ class AASElementFactory:
         both (plus a ``{lang: text}`` map) so the same builder serves both paths.
         """
         if isinstance(text, str):
+            if not text.strip():
+                return {default_language: "[empty]"}
             return {default_language: text}
         if isinstance(text, list):
             out: Dict[str, str] = {}
@@ -163,18 +165,19 @@ class AASElementFactory:
                 if isinstance(item, dict):
                     lang = item.get("language") or item.get("lang") or default_language
                     val = item.get("text", item.get("value", ""))
-                    if val != "" and val is not None:
+                    if val is not None and str(val).strip():
                         out[str(lang)] = str(val)
-                elif isinstance(item, str) and item:
+                elif isinstance(item, str) and item.strip():
                     out[default_language] = item
-            return out or {default_language: ""}
+            return out if out else {default_language: "[empty]"}
         if isinstance(text, dict):
             # Single {language, text} object, or an already-built {lang: text} map.
             if "text" in text or "language" in text:
                 lang = text.get("language") or default_language
-                return {str(lang): str(text.get("text", ""))}
-            return {str(k): str(v) for k, v in text.items()}
-        return {default_language: str(text)}
+                raw = str(text.get("text", ""))
+                return {str(lang): raw if raw.strip() else "[empty]"}
+            return {str(k): str(v) if str(v).strip() else "[empty]" for k, v in text.items()}
+        return {default_language: str(text) if text and str(text).strip() else "[empty]"}
 
     @staticmethod
     def create_multi_language_property(
