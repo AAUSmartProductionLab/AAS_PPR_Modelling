@@ -30,7 +30,6 @@ const FIELDS: Field[] = [
   { key: 'FirmwareVersion', label: 'FirmwareVersion', required: false, placeholder: '' },
   { key: 'SoftwareVersion', label: 'SoftwareVersion', required: false, placeholder: '' },
   { key: 'CountryOfOrigin', label: 'CountryOfOrigin', required: false, placeholder: '' },
-  { key: 'AddressInformation', label: 'AddressInformation', required: false, placeholder: '' },
   { key: 'UniqueFacilityIdentifier', label: 'UniqueFacilityIdentifier', required: false, placeholder: '' },
   { key: 'CompanyLogo', label: 'CompanyLogo', required: false, placeholder: '' },
 ];
@@ -90,6 +89,18 @@ export function DigitalNameplateForm() {
       return;
     }
     updateProfileField([systemId, 'DigitalNameplate', key], value);
+  };
+
+  // AddressInformation (structured) — the builder + SHACL expect an object with
+  // Street / ZipCode / CityTown / NationalCode, not a single free-text string.
+  const getAddress = (): Record<string, string> => {
+    const a = (nameplate as any).AddressInformation;
+    return a && typeof a === 'object' && !Array.isArray(a) ? (a as Record<string, string>) : {};
+  };
+  const setAddressField = (field: string, value: string) => {
+    const cur = { ...getAddress() };
+    if (value) cur[field] = value; else delete cur[field];
+    updateProfileField([systemId, 'DigitalNameplate', 'AddressInformation'], Object.keys(cur).length ? cur : undefined);
   };
 
   // Markings helpers (array of SMC objects) — moved inside component so we have access to state helpers
@@ -246,6 +257,34 @@ export function DigitalNameplateForm() {
             />
           </div>
         ))}
+      </div>
+
+      {/* AddressInformation (structured) — all four children are mandatory */}
+      <div className="section">
+        <div className="section-header">
+          <h4>AddressInformation <span className="required-star">*</span></h4>
+        </div>
+        <p className="field-hint" style={{ marginTop: 0 }}>
+          All four fields are required by IDTA 02006 / SHACL — an empty or partial address fails validation.
+        </p>
+        <div className="field-grid">
+          {[
+            { key: 'Street', label: 'Street' },
+            { key: 'ZipCode', label: 'ZipCode' },
+            { key: 'CityTown', label: 'CityTown' },
+            { key: 'NationalCode', label: 'NationalCode' },
+          ].map(({ key, label }) => (
+            <div key={key} className="field-group">
+              <label className="field-label">{label} <span className="required-star">*</span></label>
+              <input
+                type="text"
+                className="field-input"
+                value={getAddress()[key] ?? ''}
+                onChange={(e) => setAddressField(key, e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Markings editor */}

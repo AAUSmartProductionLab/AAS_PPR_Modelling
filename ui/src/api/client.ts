@@ -1,5 +1,10 @@
 import type { ValidateResponse, ValidationIssue } from '../types/resourceaas';
 
+export interface ValidateProfileResponse extends ValidateResponse {
+  /** The full AAS Environment JSON the server built from the profile. */
+  aas_json: string;
+}
+
 const BASE = '/api';
 
 async function post<T>(path: string, body: Record<string, unknown>): Promise<T> {
@@ -23,6 +28,8 @@ export interface GenerationConfig {
   providers: string[];
   models: Record<string, string[]>;
   defaults: Record<string, unknown>;
+  /** Per-provider readiness: gemini/groq need an API key, claude needs the local CLI. */
+  provider_ready?: Record<string, boolean>;
 }
 
 // ---------------------------------------------------------------------------
@@ -80,6 +87,14 @@ export type SseEvent =
 export const api = {
   validate: (json_text: string, aas_type: string = 'Resource') =>
     post<ValidateResponse>('/validate', { json_text, aas_type }),
+
+  /**
+   * Validate a UI profile by building the full AAS server-side with the
+   * canonical Python builders first, then running SHACL. This is the manual
+   * modelling source of truth (the TS builders are preview-only).
+   */
+  validateProfile: (profile_json: string, aas_type: string = 'Resource', base_url?: string) =>
+    post<ValidateProfileResponse>('/validate-profile', { profile_json, aas_type, base_url }),
 
   getGenerationConfig: async (): Promise<GenerationConfig> => {
     const res = await fetch(`${BASE}/generation-config`);

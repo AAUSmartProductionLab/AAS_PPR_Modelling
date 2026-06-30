@@ -5,6 +5,50 @@ import { useAppStore } from '../store/useAppStore';
 const DEBOUNCE_MS = 400;
 
 /**
+ * Validate a single AAS node against the shapes for its own type and store the
+ * result per-node. Reads the freshest store state via getState(), so it is safe
+ * to call imperatively (e.g. when an editor modal closes) as well as from the
+ * debounced workspace effect below.
+ *
+ * For the active node the latest identity/type live in the flat workspace
+ * fields; for other nodes they live in the saved aasNodes entry.
+ */
+export async function validateAasNode(nodeId: string): Promise<void> {
+  const s = useAppStore.getState();
+  const isActive = nodeId === s.activeAasNodeId;
+  const node = s.aasNodes[nodeId];
+  const identitySystemId = isActive ? s.identitySystemId : node?.identitySystemId;
+  const identityId = isActive ? s.identityId : node?.identityId;
+  const nodeType = isActive ? s.aasType : (node?.aasType ?? 'Resource');
+
+  if (!identitySystemId) {
+    s.setValidationIssuesForNode(nodeId, []);
+    return;
+  }
+
+  // Send the profile; the server builds the canonical AAS (correct IDTA/ARSO
+  // semanticIds) and validates it. The TS builders are preview-only.
+  const profile = s.buildProfileForNode(nodeId);
+  if (!profile) {
+    s.setValidationIssuesForNode(nodeId, []);
+    return;
+  }
+  let baseUrl: string | undefined;
+  try { baseUrl = identityId ? new URL(identityId).origin : undefined; } catch { baseUrl = undefined; }
+
+  s.setLoadingValidateForNode(nodeId, true);
+  try {
+    const result = await api.validateProfile(profile, nodeType, baseUrl);
+    if (nodeId === s.activeAasNodeId) s.setValidateResult(result);
+    s.setValidationIssuesForNode(nodeId, result.issues);
+  } catch {
+    // Backend not running / transient error — keep previous issues silently.
+  } finally {
+    s.setLoadingValidateForNode(nodeId, false);
+  }
+}
+
+/**
  * Validates EVERY AAS in the workspace whenever anything changes (debounced).
  * Each AAS is validated against the shapes for its own type (Resource -> ARSO,
  * Product -> APSO), so a mixed workspace stays correct. Results are stored
@@ -17,10 +61,6 @@ export function useValidation() {
   const parsedProfile = useAppStore((s) => s.parsedProfile);
   const selectedSubmodels = useAppStore((s) => s.selectedSubmodels);
   const aasType = useAppStore((s) => s.aasType);
-  const buildAasJsonForNode = useAppStore((s) => s.buildAasJsonForNode);
-  const setValidationIssuesForNode = useAppStore((s) => s.setValidationIssuesForNode);
-  const setLoadingValidateForNode = useAppStore((s) => s.setLoadingValidateForNode);
-  const setValidateResult = useAppStore((s) => s.setValidateResult);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevDataKeyRef = useRef<string>('');
@@ -37,33 +77,11 @@ export function useValidation() {
 
     timerRef.current = setTimeout(() => {
       // Validate each configured AAS in parallel against its own type's shapes.
-      void Promise.all(nodeIds.map(async (nodeId) => {
-        const node = aasNodes[nodeId];
-        if (!node?.identitySystemId) {
-          setValidationIssuesForNode(nodeId, []);
-          return;
-        }
-        const nodeType = nodeId === activeAasNodeId ? aasType : (node.aasType ?? 'Resource');
-        setLoadingValidateForNode(nodeId, true);
-        try {
-          const json = buildAasJsonForNode(nodeId);
-          if (!json) {
-            setValidationIssuesForNode(nodeId, []);
-            return;
-          }
-          const result = await api.validate(json, nodeType);
-          if (nodeId === activeAasNodeId) setValidateResult(result);
-          setValidationIssuesForNode(nodeId, result.issues);
-        } catch {
-          // Silently ignore (backend not running, etc.)
-        } finally {
-          setLoadingValidateForNode(nodeId, false);
-        }
-      }));
+      void Promise.all(nodeIds.map((nodeId) => validateAasNode(nodeId)));
     }, delay);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [aasNodes, parsedProfile, selectedSubmodels, activeAasNodeId, aasType, buildAasJsonForNode, setValidationIssuesForNode, setLoadingValidateForNode, setValidateResult]);
+  }, [aasNodes, parsedProfile, selectedSubmodels, activeAasNodeId, aasType]);
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useModelStore } from '../../../store/useModelStore';
-import type { SubmodelKey } from '../../../store/useAppStore';
+import { useAppStore, type SubmodelKey } from '../../../store/useAppStore';
+import { validateAasNode } from '../../../hooks/useValidation';
 import { DigitalNameplateForm } from '../../submodels/DigitalNameplateForm';
 import { AIDForm } from '../../submodels/AIDForm';
 import { SkillsForm } from '../../submodels/SkillsForm';
@@ -27,6 +28,16 @@ export function PropertyEditorModal() {
   const modal = useModelStore((s) => s.modal);
   const closeModal = useModelStore((s) => s.closeModal);
   const [advanced, setAdvanced] = useState(false);
+
+  // Closing the editor commits the edits already in the store; trigger an
+  // immediate re-validation of the AAS that was being edited (the active node,
+  // set when its submodel editor was opened) rather than waiting for the
+  // debounced workspace validation.
+  const handleDone = () => {
+    const activeId = useAppStore.getState().activeAasNodeId;
+    closeModal();
+    void validateAasNode(activeId);
+  };
 
   useEffect(() => {
     if (modal.kind !== 'property') return;
@@ -78,7 +89,7 @@ export function PropertyEditorModal() {
           </AdvancedContext.Provider>
         </div>
         <div className="mb-modal__footer">
-          <button className="btn btn--primary" onClick={closeModal}>
+          <button className="btn btn--primary" onClick={handleDone}>
             Done
           </button>
         </div>

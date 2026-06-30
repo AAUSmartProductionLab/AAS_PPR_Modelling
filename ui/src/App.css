@@ -2607,6 +2607,19 @@ select.field-input { appearance: none; }
   margin-top: 8px;
 }
 .generate-ai-error small { display: block; margin-top: 4px; color: var(--text-muted); }
+.generate-ai-error__hint {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(239, 68, 68, 0.2);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.generate-ai-error__hint code {
+  font-size: 11px;
+  background: rgba(127, 127, 127, 0.15);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
 
 /* Result state */
 .generate-ai-result {

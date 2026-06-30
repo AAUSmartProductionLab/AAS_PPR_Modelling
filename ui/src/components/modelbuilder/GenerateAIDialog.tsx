@@ -163,7 +163,7 @@ export function GenerateAIDialog({ isOpen, onClose, onImport }: GenerateAIDialog
   const [useExample, setUseExample] = useState(false);
   const [forceFullOutput, setForceFullOutput] = useState(true);
   const [maxPdfChars, setMaxPdfChars] = useState<number | null>(8000);
-  const [maxAttempts, setMaxAttempts] = useState(2);
+  const [maxAttempts, setMaxAttempts] = useState(1);
   const [showAdvanced, setShowAdvanced] = useState(true);
 
   // --- UI state ---
@@ -207,6 +207,19 @@ export function GenerateAIDialog({ isOpen, onClose, onImport }: GenerateAIDialog
   const providerOptions = genConfig?.providers ?? ['gemini', 'groq'];
   const availableModels = genConfig?.models[provider] ?? [];
   const modelLabel = model || availableModels[0] || '(default)';
+
+  // Provider readiness: gemini/groq need an API key in config.yaml; claude needs
+  // the local CLI. Unknown (config not loaded yet) is treated as ready so we
+  // don't block before the config arrives.
+  const providerReady = genConfig?.provider_ready?.[provider] ?? true;
+  const providerKeyField = provider === 'gemini' ? 'google_ai_studio' : provider;
+  const providerWarning = providerReady
+    ? null
+    : provider === 'claude'
+      ? 'Claude CLI not found on the backend host. Install & authenticate the Claude CLI ("claude"), or choose another provider.'
+      : `No API key configured for "${provider}". Add api_keys.${providerKeyField} to Generation/config.yaml and restart the backend.`;
+  // Surface auth-style failures from a real generation attempt as a key problem.
+  const isAuthError = !!errorMsg && /api[_\s-]?key|unauthorized|forbidden|\b401\b|\b403\b|invalid.*key|permission denied|no api key configured/i.test(errorMsg);
 
   const toggleSubmodel = (key: SubmodelKey) => {
     if (REQUIRED_SUBMODELS.includes(key)) return;
@@ -361,7 +374,13 @@ export function GenerateAIDialog({ isOpen, onClose, onImport }: GenerateAIDialog
                   {provider === 'claude' && (
                     <div className="form-row form-row--inline">
                       <label className="form-label">Claude Auth</label>
-                      <span className="form-hint">Uses local Claude CLI authentication/session on the backend host.</span>
+                      <span className="form-hint">Uses local Claude CLI authentication/session on the backend host — no API key needed.</span>
+                    </div>
+                  )}
+
+                  {providerWarning && (
+                    <div className="generate-ai-error" role="alert">
+                      <strong>⚠ API key required:</strong> {providerWarning}
                     </div>
                   )}
 
@@ -502,6 +521,12 @@ export function GenerateAIDialog({ isOpen, onClose, onImport }: GenerateAIDialog
               {status === 'error' && (
                 <div className="generate-ai-error">
                   <strong>Error:</strong> {errorMsg}
+                  {isAuthError && (
+                    <div className="generate-ai-error__hint">
+                      → New or valid API keys are required. Update <code>Generation/config.yaml</code> and
+                      restart the backend, or switch to the <strong>claude</strong> provider (local CLI auth).
+                    </div>
+                  )}
                 </div>
               )}
             </>
@@ -603,7 +628,12 @@ export function GenerateAIDialog({ isOpen, onClose, onImport }: GenerateAIDialog
             Cancel
           </button>
           {!isLoading && !hasResult && (
-            <button className="btn btn--primary" onClick={handleGenerate} disabled={!canGenerate}>
+            <button
+              className="btn btn--primary"
+              onClick={handleGenerate}
+              disabled={!canGenerate || !providerReady}
+              title={!providerReady ? (providerWarning ?? '') : undefined}
+            >
               Generate
             </button>
           )}

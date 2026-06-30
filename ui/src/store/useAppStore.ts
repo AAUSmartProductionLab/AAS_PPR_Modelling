@@ -103,6 +103,10 @@ interface AppState {
   removeAasNode: (shellNodeId: string) => void;
   resetAasNode: (shellNodeId: string) => void;
   buildAasJsonForNode: (shellNodeId: string) => string;
+  /** Build the UI *profile* document ({ systemId: { ...sections } }) for a node,
+   *  with the current identity merged in. Sent to /api/validate-profile so the
+   *  server builds + validates the canonical AAS. Returns '' if not configured. */
+  buildProfileForNode: (shellNodeId: string) => string;
   buildAllAasJson: () => string;
 
   // ── Existing actions (operate on active AAS) ────────────────────────────
@@ -289,6 +293,27 @@ export const useAppStore = create<AppState>()(
       ns.identityId, ns.identityIdShort, ns.identityGlobalAssetId,
       submodels, ns.identityAssetType || undefined
     );
+  },
+
+  buildProfileForNode: (shellNodeId) => {
+    const s = get();
+    // Use the live workspace if it's the active node, otherwise the saved state.
+    const ns = s.activeAasNodeId === shellNodeId
+      ? extractNodeState(s)
+      : (s.aasNodes[shellNodeId] ?? DEFAULT_AAS_NODE_STATE);
+    if (!ns.identitySystemId) return '';
+    const systemId = ns.identitySystemId;
+    const existingBody = (ns.parsedProfile?.[systemId] ?? {}) as Record<string, unknown>;
+    // Merge the freshest identity fields over the stored body (identity edits
+    // update the flat workspace fields, not the profile body).
+    const body: Record<string, unknown> = {
+      ...existingBody,
+      idShort: ns.identityIdShort,
+      id: ns.identityId,
+      globalAssetId: ns.identityGlobalAssetId,
+      ...(ns.identityAssetType ? { assetType: ns.identityAssetType } : {}),
+    };
+    return JSON.stringify({ [systemId]: body });
   },
 
   buildAllAasJson: () => {

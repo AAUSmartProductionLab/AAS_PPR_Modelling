@@ -306,6 +306,12 @@ export function HierarchicalStructuresForm() {
   const archetypeSections: RelKey[] = archetype ? (ARCHETYPE_SECTIONS[archetype] ?? []) : [];
   const visibleSections: RelKey[]   = [...archetypeSections, 'SameAs'];
 
+  // The BoM EntryNode must carry at least one relationship (HasPart / IsPartOf /
+  // SameAs); an empty EntryNode fails SHACL. Surface that requirement.
+  const hasAnyBomEntry = visibleSections.some(
+    (rk) => Object.keys(((hs as any)?.[rk] ?? {})).length > 0,
+  );
+
   return (
     <div className="submodel-form">
       {advanced && (
@@ -348,6 +354,14 @@ export function HierarchicalStructuresForm() {
           </span>
         </div>
       </div>
+
+      {!hasAnyBomEntry && (
+        <p className="field-hint" style={{ color: 'var(--danger, #ef4444)', marginTop: 12 }}>
+          ⚠ The BoM entry node needs at least one relationship to validate. Pick an Archetype
+          (OneUp = this asset is part of a larger assembly, OneDown = it contains parts), then add an
+          entity below with its Global Asset ID. A standalone asset still needs one (e.g. IsPartOf the line/plant).
+        </p>
+      )}
 
       {visibleSections.map((relKey) => {
         const entities: Record<string, BomEntity> = (hs as any)?.[relKey] ?? {};
