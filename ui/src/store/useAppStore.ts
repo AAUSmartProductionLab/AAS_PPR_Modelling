@@ -5,16 +5,12 @@ import type {
   ValidationIssue,
   ValidateResponse,
 } from '../types/resourceaas';
-import { buildAasEnvironment } from '../aas/serializer';
-import { SEMANTIC_ID_BASE } from '../aas/semanticIds';
-import type { AasSubmodel } from '../aas/types';
 import { parseAasJsonToProfile } from '../aas/parsers/parseAasToProfile';
 import {
   SUBMODELS,
   SUBMODEL_KEYS,
   REQUIRED_SUBMODEL_KEYS,
   IDSHORT_TO_KEY,
-  buildSubmodelsForNode,
 } from '../aas/submodelRegistry';
 
 export type AASType = 'Resource' | 'Product' | 'Process';
@@ -102,12 +98,11 @@ interface AppState {
   addAasNode: (shellNodeId: string) => void;
   removeAasNode: (shellNodeId: string) => void;
   resetAasNode: (shellNodeId: string) => void;
-  buildAasJsonForNode: (shellNodeId: string) => string;
   /** Build the UI *profile* document ({ systemId: { ...sections } }) for a node,
    *  with the current identity merged in. Sent to /api/validate-profile so the
-   *  server builds + validates the canonical AAS. Returns '' if not configured. */
+   *  server (the single source of truth) builds + validates the canonical AAS.
+   *  Returns '' if not configured. */
   buildProfileForNode: (shellNodeId: string) => string;
-  buildAllAasJson: () => string;
 
   // ── Existing actions (operate on active AAS) ────────────────────────────
   setAASType: (t: AASType) => void;
@@ -126,7 +121,6 @@ interface AppState {
   setLoadingValidate: (v: boolean) => void;
   setValidationIssuesForNode: (nodeId: string, issues: ValidationIssue[]) => void;
   setLoadingValidateForNode: (nodeId: string, v: boolean) => void;
-  buildAasJson: () => string;
   resetAll: () => void;
 
   // ── AI Generation ───────────────────────────────────────────────────────
@@ -139,14 +133,6 @@ interface AppState {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function deriveBaseUrl(id: string): string {
-  try {
-    return new URL(id).origin;
-  } catch {
-    return SEMANTIC_ID_BASE;
-  }
-}
 
 /** Flatten AASNodeState fields onto the "active workspace" fields. */
 function flattenNode(ns: AASNodeState): Partial<AppState> {
@@ -194,11 +180,6 @@ function withSync(s: AppState, updates: Partial<AppState>): Partial<AppState> {
       },
     },
   };
-}
-
-/** Build submodels array from an AASNodeState (registry-driven). */
-function buildSubmodels(ns: AASNodeState): AasSubmodel[] {
-  return buildSubmodelsForNode(ns, deriveBaseUrl(ns.identityId));
 }
 
 // ── Initial state ─────────────────────────────────────────────────────────────
@@ -281,20 +262,6 @@ export const useAppStore = create<AppState>()(
     set(updates as AppState);
   },
 
-  buildAasJsonForNode: (shellNodeId) => {
-    const s = get();
-    // Use the live workspace if it's the active node, otherwise use saved state
-    const ns = s.activeAasNodeId === shellNodeId
-      ? extractNodeState(s)
-      : (s.aasNodes[shellNodeId] ?? DEFAULT_AAS_NODE_STATE);
-    if (!ns.identitySystemId) return '';
-    const submodels = buildSubmodels(ns);
-    return buildAasEnvironment(
-      ns.identityId, ns.identityIdShort, ns.identityGlobalAssetId,
-      submodels, ns.identityAssetType || undefined
-    );
-  },
-
   buildProfileForNode: (shellNodeId) => {
     const s = get();
     // Use the live workspace if it's the active node, otherwise the saved state.
@@ -314,26 +281,6 @@ export const useAppStore = create<AppState>()(
       ...(ns.identityAssetType ? { assetType: ns.identityAssetType } : {}),
     };
     return JSON.stringify({ [systemId]: body });
-  },
-
-  buildAllAasJson: () => {
-    const s = get();
-    // Collect current workspace state for active node, saved state for others
-    const allNodes = {
-      ...s.aasNodes,
-      [s.activeAasNodeId]: extractNodeState(s),
-    };
-    // Build each AAS as a separate environment, return as JSON array
-    const envs = Object.values(allNodes)
-      .filter((ns) => ns.identitySystemId)
-      .map((ns) => {
-        const submodels = buildSubmodels(ns);
-        return JSON.parse(buildAasEnvironment(
-          ns.identityId, ns.identityIdShort, ns.identityGlobalAssetId,
-          submodels, ns.identityAssetType || undefined
-        ));
-      });
-    return JSON.stringify(envs, null, 2);
   },
 
   // ── Wizard actions ─────────────────────────────────────────────────────
@@ -474,19 +421,6 @@ export const useAppStore = create<AppState>()(
       loadingValidateByNode: { ...s.loadingValidateByNode, [nodeId]: v },
       ...(nodeId === s.activeAasNodeId ? { isLoadingValidate: v } : {}),
     })),
-
-  // ── AAS JSON builder (active AAS) ──────────────────────────────────────
-
-  buildAasJson: () => {
-    const s = get();
-    const ns = extractNodeState(s);
-    if (!ns.identitySystemId) return '';
-    const submodels = buildSubmodels(ns);
-    return buildAasEnvironment(
-      ns.identityId, ns.identityIdShort, ns.identityGlobalAssetId,
-      submodels, ns.identityAssetType || undefined
-    );
-  },
 
   // ── AI Generation import ───────────────────────────────────────────────
 

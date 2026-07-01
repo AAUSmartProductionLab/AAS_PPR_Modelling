@@ -2,12 +2,12 @@ import { useState } from 'react';
 import type { Node, Edge } from '@xyflow/react';
 import { useAppStore } from '../../store/useAppStore';
 import { useModelStore, createShellNodeId, type EdgeLineType } from '../../store/useModelStore';
+import { buildServerAasJson } from '../../hooks/useValidation';
 import { GenerateAIDialog } from './GenerateAIDialog';
 import type { SubmodelNodeData } from './nodes/SubmodelNode';
 import type { SubmodelKey } from '../../store/useAppStore';
 
 export function BuilderToolbar() {
-  const buildAllAasJson = useAppStore((s) => s.buildAllAasJson);
   const aasNodes = useAppStore((s) => s.aasNodes);
   const isLoadingValidate = useAppStore((s) => s.isLoadingValidate);
   const resetApp = useAppStore((s) => s.resetAll);
@@ -22,8 +22,29 @@ export function BuilderToolbar() {
 
   const configuredCount = Object.values(aasNodes).filter((n) => n.identitySystemId.trim()).length;
 
-  const handleExportAll = () => {
-    const json = buildAllAasJson();
+  const handleExportAll = async () => {
+    // The backend builds each configured AAS from its profile and returns the
+    // canonical JSON that validation uses.
+    const ids = Object.keys(aasNodes).filter((k) => aasNodes[k].identitySystemId.trim());
+    const envs: unknown[] = [];
+    let anyFailed = false;
+    for (const id of ids) {
+      try {
+        const j = await buildServerAasJson(id);
+        if (j) envs.push(JSON.parse(j));
+        else anyFailed = true;
+      } catch {
+        anyFailed = true;
+      }
+    }
+    if (envs.length === 0) {
+      window.alert('Could not reach the backend to build the AAS(s). Start the API (scripts/run-api.ps1) and try again.');
+      return;
+    }
+    if (anyFailed) {
+      window.alert('Some AASs could not be built server-side and were skipped. Start the API to export them.');
+    }
+    const json = JSON.stringify(envs, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

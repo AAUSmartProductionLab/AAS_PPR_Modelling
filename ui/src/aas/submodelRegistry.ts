@@ -1,25 +1,18 @@
 /**
  * Single source of truth for every submodel the editor knows about.
  *
- * One entry per submodel carries everything the rest of the app needs — the
- * profile (YAML) key, the built idShort, the semantic id, catalog presentation,
- * which AAS types it applies to, and the builder that turns a profile section
- * into a full AAS Submodel. All the previously-parallel lookup tables
- * (ALL_SUBMODELS, SUBMODEL_YAML_KEYS, SUBMODEL_META, SUBMODEL_IDSHORT, ...) are
- * now DERIVED from this map, so adding a submodel is a single edit here (plus
- * the SubmodelKey union, which TypeScript enforces via Record<SubmodelKey, …>).
+ * One entry per submodel carries the metadata the rest of the app needs — the
+ * profile key, the built idShort, the semantic id, catalog presentation, and
+ * which AAS types it applies to. The lookup tables (SUBMODEL_KEYS,
+ * REQUIRED_SUBMODEL_KEYS, IDSHORT_TO_KEY, …) are DERIVED from this map, so adding
+ * a submodel is a single edit here (plus the SubmodelKey union, which TypeScript
+ * enforces via Record<SubmodelKey, …>).
+ *
+ * The AAS itself is built on the backend (Python builders, the single source of
+ * truth). The frontend only assembles the *profile* and sends it to the API —
+ * there are no TypeScript AAS builders.
  */
-import type { AasSubmodel } from './types';
-import type { SubmodelKey, AASType, AASNodeState } from '../store/useAppStore';
-
-import { buildNameplateSubmodel } from './builders/nameplate';
-import { buildHierarchicalStructuresSubmodel } from './builders/hierarchicalStructures';
-import { buildAIDSubmodel } from './builders/aid';
-import { buildSkillsSubmodel } from './builders/skills';
-import { buildCapabilitiesSubmodel } from './builders/capabilities';
-import { buildOperationalDataSubmodel } from './builders/operationalData';
-import { buildParametersSubmodel } from './builders/parameters';
-import { buildAIMCSubmodel } from './builders/aimc';
+import type { SubmodelKey, AASType } from '../store/useAppStore';
 import {
   DIGITAL_NAMEPLATE_SUBMODEL,
   HIERARCHICAL_STRUCTURES,
@@ -31,19 +24,10 @@ import {
   AIMC_SUBMODEL,
 } from './semanticIds';
 
-/** Context passed to a submodel builder. `section` is the profile slice under `yamlKey`. */
-export interface BuildContext {
-  baseUrl: string;
-  systemId: string;
-  section: unknown;
-  meta?: { id?: string; semanticId?: string };
-  node: AASNodeState;
-}
-
 export interface SubmodelDef {
   /** Key in the profile / system config (e.g. 'DigitalNameplate', 'Variables'). */
   yamlKey: string;
-  /** idShort the builder emits — must match the built Submodel for round-tripping. */
+  /** idShort the backend builder emits — used for round-tripping on import. */
   idShort: string;
   /** idShorts recognised when importing an AAS back into a profile (built idShort + aliases). */
   importIdShorts: string[];
@@ -57,21 +41,9 @@ export interface SubmodelDef {
   aasTypes: AASType[];
   /** Always present on a new AAS of an applicable type. */
   required?: boolean;
-  /** Build the full AAS Submodel from the profile section. */
-  build: (ctx: BuildContext) => AasSubmodel;
   /** Hide from catalog UI (backend not yet implemented). */
   hidden?: boolean;
 }
-
-// Typed casts mirror the original buildSubmodels call sites.
-type NameplateArg = Parameters<typeof buildNameplateSubmodel>[2];
-type HierArg = Parameters<typeof buildHierarchicalStructuresSubmodel>[4];
-type AIDArg = Parameters<typeof buildAIDSubmodel>[2];
-type SkillsArg = Parameters<typeof buildSkillsSubmodel>[2];
-type CapsArg = Parameters<typeof buildCapabilitiesSubmodel>[2];
-type VarsArg = Parameters<typeof buildOperationalDataSubmodel>[2];
-type ParamsArg = Parameters<typeof buildParametersSubmodel>[2];
-type AIMCArg = Parameters<typeof buildAIMCSubmodel>[2];
 
 /**
  * The registry. Order here is the canonical catalog display order.
@@ -88,7 +60,6 @@ export const SUBMODELS: Record<SubmodelKey, SubmodelDef> = {
     color: '#38bdf8',
     aasTypes: ['Resource'],
     required: true,
-    build: (c) => buildNameplateSubmodel(c.baseUrl, c.systemId, (c.section ?? {}) as NameplateArg, c.meta),
   },
   HierarchicalStructures: {
     yamlKey: 'HierarchicalStructures',
@@ -100,10 +71,6 @@ export const SUBMODELS: Record<SubmodelKey, SubmodelDef> = {
     color: '#34d399',
     aasTypes: ['Resource'],
     required: true,
-    build: (c) => buildHierarchicalStructuresSubmodel(
-      c.baseUrl, c.systemId, c.node.identityGlobalAssetId, c.node.identityId,
-      (c.section ?? {}) as HierArg, c.meta,
-    ),
   },
   AID: {
     yamlKey: 'AID',
@@ -114,7 +81,6 @@ export const SUBMODELS: Record<SubmodelKey, SubmodelDef> = {
     description: 'MQTT/HTTP endpoint + interaction metadata',
     color: '#a78bfa',
     aasTypes: ['Resource'],
-    build: (c) => buildAIDSubmodel(c.baseUrl, c.systemId, (c.section ?? {}) as AIDArg, c.meta),
   },
   Skills: {
     yamlKey: 'Skills',
@@ -125,7 +91,6 @@ export const SUBMODELS: Record<SubmodelKey, SubmodelDef> = {
     description: 'Executable capabilities of this resource',
     color: '#fb923c',
     aasTypes: ['Resource'],
-    build: (c) => buildSkillsSubmodel(c.baseUrl, c.systemId, (c.section ?? {}) as SkillsArg, c.meta),
   },
   Capabilities: {
     yamlKey: 'Capabilities',
@@ -136,7 +101,6 @@ export const SUBMODELS: Record<SubmodelKey, SubmodelDef> = {
     description: 'Semantic capability declarations',
     color: '#f472b6',
     aasTypes: ['Resource'],
-    build: (c) => buildCapabilitiesSubmodel(c.baseUrl, c.systemId, (c.section ?? {}) as CapsArg, c.meta),
   },
   Variables: {
     yamlKey: 'Variables',
@@ -147,7 +111,6 @@ export const SUBMODELS: Record<SubmodelKey, SubmodelDef> = {
     description: 'Runtime variable semantic IDs',
     color: '#fbbf24',
     aasTypes: ['Resource'],
-    build: (c) => buildOperationalDataSubmodel(c.baseUrl, c.systemId, (c.section ?? {}) as VarsArg, c.meta),
   },
   Parameters: {
     yamlKey: 'Parameters',
@@ -158,7 +121,6 @@ export const SUBMODELS: Record<SubmodelKey, SubmodelDef> = {
     description: 'Configuration parameters with units',
     color: '#94a3b8',
     aasTypes: ['Resource'],
-    build: (c) => buildParametersSubmodel(c.baseUrl, c.systemId, (c.section ?? {}) as ParamsArg, c.meta),
   },
   AIMC: {
     yamlKey: 'AIMC',
@@ -170,7 +132,6 @@ export const SUBMODELS: Record<SubmodelKey, SubmodelDef> = {
     color: '#6ee7b7',
     aasTypes: ['Resource'],
     hidden: true,
-    build: (c) => buildAIMCSubmodel(c.baseUrl, c.systemId, (c.section ?? {}) as AIMCArg, c.meta),
   },
 };
 
@@ -189,26 +150,3 @@ export const REQUIRED_SUBMODEL_KEYS = SUBMODEL_KEYS.filter((k) => SUBMODELS[k].r
 export const IDSHORT_TO_KEY: Record<string, SubmodelKey> = Object.fromEntries(
   SUBMODEL_KEYS.flatMap((k) => SUBMODELS[k].importIdShorts.map((id) => [id, k])),
 ) as Record<string, SubmodelKey>;
-
-/** Build the full Submodel list for an AAS node from its selected submodels. */
-export function buildSubmodelsForNode(
-  ns: AASNodeState,
-  baseUrl: string,
-): AasSubmodel[] {
-  const systemId = ns.identitySystemId;
-  const systemConfig = (ns.parsedProfile?.[systemId] ?? {}) as Record<string, unknown>;
-  const metaOverrides = (systemConfig._meta ?? {}) as Record<string, { id?: string; semanticId?: string }>;
-  const out: AasSubmodel[] = [];
-  for (const key of ns.selectedSubmodels) {
-    const def = SUBMODELS[key];
-    if (!def) continue;
-    out.push(def.build({
-      baseUrl,
-      systemId,
-      section: systemConfig[def.yamlKey] ?? {},
-      meta: metaOverrides[key],
-      node: ns,
-    }));
-  }
-  return out;
-}

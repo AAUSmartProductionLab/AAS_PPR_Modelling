@@ -2,12 +2,15 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { Handle, Position, NodeResizeControl, type NodeProps } from '@xyflow/react';
 import { useAppStore, DEFAULT_AAS_NODE_STATE, type AASType } from '../../../store/useAppStore';
 import { useModelStore } from '../../../store/useModelStore';
+import { buildServerAasJson } from '../../../hooks/useValidation';
+
+const BACKEND_UNAVAILABLE_MSG =
+  'Could not reach the backend to build this AAS. Start the API (scripts/run-api.ps1) and try again.';
 
 export const AasShellNode = memo(function AasShellNode({ id, selected }: NodeProps) {
   const aasNodes = useAppStore((s) => s.aasNodes);
   const setActiveAasNode = useAppStore((s) => s.setActiveAasNode);
   const setAASType = useAppStore((s) => s.setAASType);
-  const buildAasJsonForNode = useAppStore((s) => s.buildAasJsonForNode);
   const resetAasNode = useAppStore((s) => s.resetAasNode);
   const openIdentityModal = useModelStore((s) => s.openIdentityModal);
   const removeNodeById = useModelStore((s) => s.removeNodeById);
@@ -41,11 +44,21 @@ export const AasShellNode = memo(function AasShellNode({ id, selected }: NodePro
     openIdentityModal(id);
   }, [id, setActiveAasNode, openIdentityModal]);
 
-  const handleExport = useCallback((e: React.MouseEvent) => {
+  const handleExport = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     setActiveAasNode(id);
-    const json = buildAasJsonForNode(id);
-    if (!json) return;
+    // The backend is the single source of truth: it builds the AAS from the
+    // profile and returns the canonical JSON that validation uses.
+    let json = '';
+    try {
+      json = await buildServerAasJson(id);
+    } catch {
+      json = '';
+    }
+    if (!json) {
+      window.alert(BACKEND_UNAVAILABLE_MSG);
+      return;
+    }
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -53,7 +66,7 @@ export const AasShellNode = memo(function AasShellNode({ id, selected }: NodePro
     a.download = `${identitySystemId || 'resourceaas'}.aas.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [id, identitySystemId, buildAasJsonForNode, setActiveAasNode]);
+  }, [id, identitySystemId, setActiveAasNode]);
 
   const handleReset = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

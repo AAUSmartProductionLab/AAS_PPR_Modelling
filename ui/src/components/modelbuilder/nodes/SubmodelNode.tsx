@@ -147,8 +147,12 @@ function getRows(
       return Object.entries(vars).slice(0, 6).map(([name, v]) => ({
         id: `var-${name}`,
         label: name,
-        value: v?.semanticId?.split('/').pop() ?? '✓',
-        handleType: 'target' as HandleType,
+        // Source handle → connect into an AID property (reads). Show the linked
+        // property when set, otherwise the semantic id tail.
+        value: (v as { InterfaceReference?: string })?.InterfaceReference
+          ? `⇄ ${(v as { InterfaceReference?: string }).InterfaceReference}`
+          : (v?.semanticId?.split('/').pop() ?? '✓'),
+        handleType: 'source' as HandleType,
         kind: 'variable',
         item: name,
       }));
@@ -160,10 +164,12 @@ function getRows(
       return Object.entries(params).slice(0, 6).map(([name, p]) => ({
         id: `par-${name}`,
         label: name,
-        value: p?.ParameterValue
-          ? `${p.ParameterValue}${p.Unit ? ' ' + p.Unit : ''}`
-          : '—',
-        handleType: 'target' as HandleType,
+        // Source handle → connect into an AID property (writes). Show the linked
+        // property when set, otherwise the value/unit.
+        value: (p as { InterfaceReference?: string })?.InterfaceReference
+          ? `⇄ ${(p as { InterfaceReference?: string }).InterfaceReference}`
+          : (p?.ParameterValue ? `${p.ParameterValue}${p.Unit ? ' ' + p.Unit : ''}` : '—'),
+        handleType: 'source' as HandleType,
         kind: 'parameter',
         item: name,
       }));

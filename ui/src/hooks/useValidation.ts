@@ -49,6 +49,27 @@ export async function validateAasNode(nodeId: string): Promise<void> {
 }
 
 /**
+ * Build the canonical (server-side) AAS Environment JSON for a node — the same
+ * AAS that /api/validate-profile validates, with the correct IDTA/ARSO
+ * semanticIds and mandatory structure. Use this for export/download so what the
+ * user saves matches what passes validation (the TS builders are preview-only).
+ * Returns '' if the node isn't configured or the backend is unreachable.
+ */
+export async function buildServerAasJson(nodeId: string): Promise<string> {
+  const s = useAppStore.getState();
+  const isActive = nodeId === s.activeAasNodeId;
+  const node = s.aasNodes[nodeId];
+  const identityId = isActive ? s.identityId : node?.identityId;
+  const aasType = isActive ? s.aasType : (node?.aasType ?? 'Resource');
+  const profile = s.buildProfileForNode(nodeId);
+  if (!profile) return '';
+  let baseUrl: string | undefined;
+  try { baseUrl = identityId ? new URL(identityId).origin : undefined; } catch { baseUrl = undefined; }
+  const res = await api.validateProfile(profile, aasType, baseUrl);
+  return res.aas_json || '';
+}
+
+/**
  * Validates EVERY AAS in the workspace whenever anything changes (debounced).
  * Each AAS is validated against the shapes for its own type (Resource -> ARSO,
  * Product -> APSO), so a mixed workspace stays correct. Results are stored

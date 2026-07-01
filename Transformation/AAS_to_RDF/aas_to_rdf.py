@@ -617,6 +617,14 @@ def _apply_structural_typing(g: Graph) -> None:
             if arso_type is not None:
                 g.add((child_uri, RDF.type, arso_type))
 
+    # Parameters: every direct child SMC of a ParametersSubmodel is a ParameterEntrySMC.
+    # (ParameterEntrySMC has no IDTA-canonical semanticId, so it is typed positionally
+    # like the Capability/CCType containers above.)
+    for params_sm_uri in g.subjects(RDF.type, ARSO.ParametersSubmodel):
+        for child_uri in g.objects(params_sm_uri, P_SUBMODEL_ELEMENTS):
+            if (child_uri, RDF.type, AAS.SubmodelElementCollection) in g:
+                g.add((child_uri, RDF.type, ARSO.ParameterEntrySMC))
+
     # SecuritySchemeSMC: every direct child of SecurityDefinitionsSMC is a scheme SMC
     for sec_def_uri in g.subjects(RDF.type, ARSO.SecurityDefinitionsSMC):
         for scheme_uri in g.objects(sec_def_uri, P_SMC_VALUE):

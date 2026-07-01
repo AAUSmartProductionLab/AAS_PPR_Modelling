@@ -74,11 +74,28 @@ export const CONNECTION_RULES: ConnectionRule[] = [
   },
   // Skill is invoked through an AID action (same AAS).
   {
-    from: 'skill', to: 'aid-action', label: 'interface',
+    from: 'skill', to: 'aid-action', label: 'invokes',
     apply: (src, tgt, s) =>
       s.updateProfileFieldForNode(src.shellId, [src.systemId, 'Skills', src.item, 'interface'], tgt.item),
     remove: (src, _tgt, s) =>
       s.removeProfileEntryForNode(src.shellId, [src.systemId, 'Skills', src.item, 'interface']),
+  },
+  // Variable reads an AID property (OperationalData → AID InteractionMetadata/properties).
+  // Properties are observable outputs, so the relationship reads as "reads".
+  {
+    from: 'variable', to: 'aid-property', label: 'reads',
+    apply: (src, tgt, s) =>
+      s.updateProfileFieldForNode(src.shellId, [src.systemId, 'Variables', src.item, 'InterfaceReference'], tgt.item),
+    remove: (src, _tgt, s) =>
+      s.removeProfileEntryForNode(src.shellId, [src.systemId, 'Variables', src.item, 'InterfaceReference']),
+  },
+  // Parameter writes a (settable) AID property (Parameters → AID InteractionMetadata/properties).
+  {
+    from: 'parameter', to: 'aid-property', label: 'writes',
+    apply: (src, tgt, s) =>
+      s.updateProfileFieldForNode(src.shellId, [src.systemId, 'Parameters', src.item, 'InterfaceReference'], tgt.item),
+    remove: (src, _tgt, s) =>
+      s.removeProfileEntryForNode(src.shellId, [src.systemId, 'Parameters', src.item, 'InterfaceReference']),
   },
   // BoM relationships: HierarchicalStructures of AAS-A references AAS-B's entry node.
   ...(['HasPart', 'IsPartOf', 'SameAs'] as const).map((rel) => ({
