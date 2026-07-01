@@ -1,0 +1,35 @@
+# .dockerignore — exclude files from Docker build context
+
+# --- Frontend (built separately) ---
+ui/
+
+# --- Python artifacts ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# --- Generated output (contains secrets/logs) ---
+Generation/output/
+
+# --- Git & IDE ---
+.git/
+.gitignore
+.vscode/
+
+# --- Testing, docs, scripts ---
+Testing/
+docs/
+images/
+scripts/
+
+# --- Environment & secrets ---
+.env
+.envrc
+*.env
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db

@@ -1,0 +1,56 @@
+# ============================================================
+# AAS PPR Modelling — Docker Compose (Development)
+#
+# Prerequisites:
+#   1. Copy Generation/config.example.yaml → Generation/config.yaml
+#      and fill in your LLM API keys.
+#   2. docker compose up --build
+#
+# Access:
+#   UI:       http://localhost:5173
+#   Backend:  http://localhost:8000/health
+# ============================================================
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    container_name: aas-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Hot-reload: mount source directories so uvicorn --reload picks up changes
+      - ./api:/app/api
+      - ./Generation:/app/Generation
+      - ./Validation:/app/Validation
+      - ./Transformation:/app/Transformation
+      - ./Ontology:/app/Ontology
+      - ./aas_configs:/app/aas_configs
+      - ./Guidance:/app/Guidance
+      # Override baked-in config with local file (optional — remove if not needed)
+      # - ./Generation/config.yaml:/app/Generation/config.yaml
+    environment:
+      - GEN_DEBUG_IO=${GEN_DEBUG_IO:-0}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./ui
+      dockerfile: ../frontend.Dockerfile
+    container_name: aas-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      # Hot-reload: mount source so Vite HMR picks up changes
+      - ./ui/src:/app/src
+      - ./ui/public:/app/public
+      - ./ui/index.html:/app/index.html
+      - ./ui/vite.config.ts:/app/vite.config.ts
+      - ./ui/tsconfig.json:/app/tsconfig.json
+      - ./ui/tsconfig.app.json:/app/tsconfig.app.json
+      - ./ui/tsconfig.node.json:/app/tsconfig.node.json
+      - ./ui/eslint.config.js:/app/eslint.config.js
+    depends_on:
+      - backend
+    restart: unless-stopped

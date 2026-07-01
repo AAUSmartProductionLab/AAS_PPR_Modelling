@@ -29,5 +29,5 @@ npm install
 Pop-Location
 
 Write-Host "`nSetup complete." -ForegroundColor Green
-Write-Host "Start the backend:  ./scripts/run-api.ps1" -ForegroundColor Green
-Write-Host "Start the UI:       ./scripts/run-ui.ps1" -ForegroundColor Green
+Write-Host "Start the backend:  ./scripts/run-backend.ps1" -ForegroundColor Green
+Write-Host "Start the frontend: ./scripts/run-frontend.ps1" -ForegroundColor Green
