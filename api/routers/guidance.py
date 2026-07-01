@@ -75,9 +75,7 @@ async def guidance(req: GuidanceRequest) -> GuidanceResponse:
     except Exception as exc:  # pragma: no cover - import/env issue
         raise HTTPException(status_code=500, detail=f"guidance engine unavailable: {exc}")
 
-    # Build a throwaway generator from the posted profile, then compute the
-    # imperative fixes. The generator mutates its own copy of the config only;
-    # the caller's editor state is untouched.
+    # Compute guidance from posted profile (non-mutating).
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "profile.json"

@@ -69,7 +69,6 @@ def _extract_text(pdf_path: Path, max_chars: Optional[int]) -> str:
                 # Bounding boxes of detected tables — used to crop them out of text
                 table_bboxes = [t.bbox for t in page.find_tables()]
 
-                # Extract text from the region outside table bounding boxes
                 if table_bboxes:
                     remaining = page
                     for bbox in table_bboxes:

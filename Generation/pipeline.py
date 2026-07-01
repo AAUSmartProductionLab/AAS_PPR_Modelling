@@ -1,12 +1,7 @@
-"""pipeline_v2 — v2 generation + validation retry loop.
+"""AAS generation pipeline with validation retry loop.
 
-Byte-for-byte parallel of generation/pipeline.py with two import lines flipped:
-  - profile_json_text_to_aas_json comes from AAS_builder_v2 (uses v2 AASGenerator)
-  - run_shacl is replaced by run_shacl_v2 (single pyshacl call, no basyx step)
-
-Anything else (progress_callback, generation_mode plumbing, profile-issue
-continue-on-failure logic) is identical to v1 so that a `validation.profile`
-flip is a clean A/B test.
+Orchestrates LLM-based generation of AAS JSON from datasheets,
+with automatic retry on validation failures.
 """
 from __future__ import annotations
 
@@ -75,7 +70,7 @@ def run_pipeline(
 
 		while attempt < cfg.max_attempts:
 			attempt += 1
-			_log(f"\n  -- Attempt {attempt}/{cfg.max_attempts} (v2) " + "-" * 30)
+			_log(f"\n  -- Attempt {attempt}/{cfg.max_attempts} " + "-" * 30)
 
 			raw_text, model_idx = call_llm(
 				provider=cfg.provider,
@@ -147,7 +142,7 @@ def run_pipeline(
 									"  Profile JSON checks reported issues; converted to AAS anyway for downstream validation."
 								)
 							else:
-								_log("  Profile conversion OK — running unified pyshacl validation (v2)...")
+								_log("  Profile conversion OK — running pyshacl validation...")
 
 							t0 = time.time()
 							shacl_conforms, shacl_issues, shacl_meta, shacl_onto = run_shacl(aas_json, tmp_dir)
@@ -169,7 +164,7 @@ def run_pipeline(
 					issues = [{"severity": "Violation", "message": f"Not valid JSON: {exc}"}]
 					conforms = False
 				else:
-					_log("  JSON parse OK — running unified pyshacl validation (v2)...")
+					_log("  JSON parse OK — running pyshacl validation...")
 					t0 = time.time()
 					conforms, issues, metamodel_issues, ontology_issues = run_shacl(raw_text, tmp_dir)
 					_log(f"  Validation: conforms={conforms}, total_issues={len(issues)}  ({time.time()-t0:.1f}s)")

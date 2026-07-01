@@ -73,11 +73,7 @@ class GenerationConfigResponse(BaseModel):
 
 
 def _claude_cli_available() -> bool:
-    """True if the Claude Code CLI (`claude`) is on PATH on the backend host.
-
-    The Claude provider shells out to `claude -p` and uses the CLI's own local
-    auth/session — no API key required — so readiness is just CLI presence.
-    """
+    """Return True if the `claude` CLI is on PATH."""
     return shutil.which("claude") is not None
 
 
