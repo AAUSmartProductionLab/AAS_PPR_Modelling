@@ -2,7 +2,6 @@
 
 Single source of truth shared by the API validate router and the LLM guidance
 engine, so the two never drift. Patterns are tried in order; first match wins.
-Add Product (APSO) message patterns here as the product submodels land.
 """
 from __future__ import annotations
 

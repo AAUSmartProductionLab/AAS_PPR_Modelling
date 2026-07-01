@@ -22,7 +22,11 @@ export type SubmodelKey =
   | 'Variables'
   | 'Parameters'
   | 'HierarchicalStructures'
-  | 'AIMC';
+  | 'AIMC'
+  | 'BatchInformation'
+  | 'BillOfMaterials'
+  | 'Requirements'
+  | 'BillOfProcess';
 
 export type SubmodelTab = SubmodelKey;
 
@@ -427,8 +431,7 @@ export const useAppStore = create<AppState>()(
   importAasJson: (json: string) => {
     const parsed = parseAasJsonToProfile(json);
     if (!parsed) {
-      console.error('importAasJson: failed to parse AAS JSON');
-      return;
+      throw new Error('Failed to parse AAS JSON — invalid or unsupported structure.');
     }
 
     const { systemId, shellIdShort, shellId, globalAssetId, config, presentSubmodelIdShorts } = parsed;

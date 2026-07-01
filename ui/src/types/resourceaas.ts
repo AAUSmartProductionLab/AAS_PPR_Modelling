@@ -22,6 +22,11 @@ export interface SystemConfig {
   AIMC?: Record<string, AIMCMappingConfig>;
   /** Per-submodel AAS id/semanticId overrides. Key = SubmodelKey (e.g. 'Skills'). */
   _meta?: Record<string, { id?: string; semanticId?: string }>;
+  // ── Product (APSO) submodels ─────────────────────────────────────────
+  BatchInformation?: BatchInformationConfig;
+  BillOfMaterials?: ProductBillOfMaterialsConfig;
+  Requirements?: RequirementsConfig;
+  BillOfProcess?: BillOfProcessConfig;
 }
 
 // ── Submodel form-state types ─────────────────────────────────────────────────
@@ -196,6 +201,65 @@ export interface AIMCRelation {
 export interface AIMCMappingConfig {
   interfaceName: string;
   relations: AIMCRelation[];
+}
+
+// ── Product (APSO) submodels ─────────────────────────────────────────────────
+
+export interface BatchInformationConfig {
+  BatchID: string;
+  ProductionDate?: string;       // ISO date
+  ExpiryDate?: string;           // ISO date
+  Quantity?: string;
+  UnitOfMeasure?: string;
+  Materials?: Record<string, BatchMaterial>;
+}
+
+export interface BatchMaterial {
+  materialName: string;
+  lotNumber?: string;
+  quantity?: string;
+  unit?: string;
+}
+
+export interface ProductBillOfMaterialsConfig {
+  Name: string;
+  Components?: Record<string, ProductBomComponent>;
+}
+
+export interface ProductBomComponent {
+  componentId: string;
+  description?: string;
+  quantity?: string;
+  unitOfMeasure?: string;
+  /** Reference to another AAS (part/sub-assembly). */
+  aasReference?: string;
+}
+
+export interface RequirementsConfig {
+  Name: string;
+  Requirements?: Record<string, ProductRequirement>;
+}
+
+export interface ProductRequirement {
+  identifier: string;
+  description: string;
+  category?: string;
+  priority?: 'High' | 'Medium' | 'Low';
+  status?: 'Open' | 'InProgress' | 'Closed';
+}
+
+export interface BillOfProcessConfig {
+  Name: string;
+  ProcessSteps?: Record<string, ProcessStep>;
+}
+
+export interface ProcessStep {
+  sequenceNumber: number;
+  description: string;
+  duration?: string;            // ISO 8601 duration
+  requiredCapabilities?: string[];
+  /** References to resource AAS that perform this step. */
+  assignedResources?: string[];
 }
 
 // ── API response types (mirrors api/models.py) ────────────────────────────────

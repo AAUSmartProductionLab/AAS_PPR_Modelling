@@ -298,30 +298,33 @@ def validate_rdf_graph(data_graph: Graph, aas_type: str = "Resource") -> tuple[b
 
 
 def run_shacl(json_text: str, tmp_dir: Path, aas_type: str = "Resource") -> tuple[bool, list[dict], list[dict], list[dict]]:
-    """Unified validation for one AAS type (Resource -> ARSO, Product -> APSO).
+    """Validate AAS JSON text via SHACL (disk-backed, for backwards compatibility).
 
-    Returns (conforms, all_issues, metamodel_issues, ontology_issues).
+    Prefer :func:`run_shacl_on_dict` for new code — it skips the disk round-trip.
     """
+    import json as _json
+    document = _json.loads(json_text)
+    return run_shacl_on_dict(document, tmp_dir, aas_type)
+
+
+def run_shacl_on_dict(aas_dict: dict, tmp_dir: Path, aas_type: str = "Resource") -> tuple[bool, list[dict], list[dict], list[dict]]:
+    """Validate an AAS Environment dict via SHACL (in-memory, no disk I/O for conversion)."""
     try:
-        from Transformation.AAS_to_RDF.aas_to_rdf import convert as aas_to_rdf_convert
+        from Transformation.AAS_to_RDF.aas_to_rdf import aas_json_to_graph
     except ImportError as exc:
         msg = f"validator: cannot import Transformation.AAS_to_RDF.aas_to_rdf ({exc})"
         return False, [{"source": "validation", "severity": "Violation", "message": msg}], \
             [{"source": "validation", "severity": "Violation", "message": msg}], []
 
-    json_path  = tmp_dir / "input.json"
-    rdf_path   = tmp_dir / "data.ttl"
     report_path = tmp_dir / "report.ttl"
-    json_path.write_text(json_text, encoding="utf-8")
 
     try:
-        aas_to_rdf_convert(json_path, rdf_path, aas_type)
+        data_graph = aas_json_to_graph(aas_dict, aas_type)
     except Exception as exc:
         msg = f"RDF projection failed: {exc}"
         return False, [{"source": "metamodel", "severity": "Violation", "message": msg}], \
             [{"source": "metamodel", "severity": "Violation", "message": msg}], []
 
-    data_graph = Graph().parse(str(rdf_path), format="turtle")
     _load_domain_ontology(data_graph, aas_type)
 
     shapes, shapes_loaded = _load_shapes(aas_type)
@@ -374,7 +377,13 @@ def run_shacl(json_text: str, tmp_dir: Path, aas_type: str = "Resource") -> tupl
     return bool(conforms), [*metamodel_issues, *ontology_issues], metamodel_issues, ontology_issues
 
 
+import warnings
+
 # Backwards-compatibility alias retained for any local debug scripts:
-run_shacl_v2 = run_shacl
+def _run_shacl_v2_deprecated(*args, **kwargs):
+    warnings.warn("run_shacl_v2 is deprecated; use run_shacl", DeprecationWarning, stacklevel=2)
+    return run_shacl(*args, **kwargs)
+
+run_shacl_v2 = _run_shacl_v2_deprecated
 
 
