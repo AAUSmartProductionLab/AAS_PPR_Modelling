@@ -54,7 +54,7 @@ The UI proxies `/api/*` to the backend on port 8000.
 
 ```bash
 cp Generation/config.example.yaml Generation/config.yaml   # then edit api_keys
-docker compose up --build
+docker compose -f docker/docker-compose.yml up --build
 ```
 
 Open **http://localhost:5173**. Source code is volume-mounted — hot-reload works for both services.
@@ -80,7 +80,6 @@ More detail and a troubleshooting log live in [docs/SETUP_AND_ISSUES.md](docs/SE
 | `Testing/` | SHACL conformance test cases and LLM generation evaluation scripts. |
 | `aas_configs/` | Example AAS profile templates. |
 | `scripts/` | Windows PowerShell helpers (`setup`, `run-api`, `run-ui`). |
-| `docs/` | Setup/troubleshooting and design/implementation notes. |
 | `images/` | Diagrams referenced by the docs. |
 
 ---

@@ -1,6 +1,6 @@
 # ============================================================
 # AAS PPR Modelling — Backend (FastAPI + Python)
-# Build from repo root:  docker build -f backend.Dockerfile -t aas-backend .
+# Build from repo root:  docker build -f docker/backend.Dockerfile -t aas-backend .
 # ============================================================
 FROM python:3.12-slim
 
@@ -16,14 +16,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # --- Application code ---
-# Copy everything needed at runtime:
-#   api/          — FastAPI app
-#   Generation/   — LLM pipeline, prompts, config
-#   Validation/   — SHACL validator
-#   Transformation/ — AAS builder & RDF converter
-#   Ontology/     — RDF ontologies & SHACL shapes
-#   aas_configs/  — profile templates
-#   Guidance/     — ontology guidance engine
 COPY api/ ./api/
 COPY Generation/ ./Generation/
 COPY Validation/ ./Validation/

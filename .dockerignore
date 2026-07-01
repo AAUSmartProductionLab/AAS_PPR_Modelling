@@ -28,8 +28,3 @@ scripts/
 # --- Environment & secrets ---
 .env
 .envrc
-*.env
-
-# --- OS junk ---
-.DS_Store
-Thumbs.db

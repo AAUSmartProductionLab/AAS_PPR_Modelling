@@ -1,6 +1,6 @@
 # ============================================================
 # AAS PPR Modelling — Frontend (React + Vite)
-# Build from repo root:  docker build -f frontend.Dockerfile -t aas-frontend ./ui
+# Build from repo root:  docker build -f docker/frontend.Dockerfile -t aas-frontend ./ui
 # ============================================================
 FROM node:22-alpine
 
