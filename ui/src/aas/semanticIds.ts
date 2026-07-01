@@ -9,8 +9,6 @@ import type { AasReference } from './types';
 export const DIGITAL_NAMEPLATE_SUBMODEL  = 'https://admin-shell.io/idta/nameplate/3/0/Nameplate';
 export const HIERARCHICAL_STRUCTURES     = 'https://admin-shell.io/idta/HierarchicalStructures/1/1/Submodel';
 export const OPERATIONAL_DATA_SUBMODEL   = 'https://admin-shell.io/idta/Variables/1/0/Submodel';
-/** @deprecated Use OPERATIONAL_DATA_SUBMODEL */
-export const VARIABLES_SUBMODEL          = OPERATIONAL_DATA_SUBMODEL;
 export const PARAMETERS_SUBMODEL         = 'https://admin-shell.io/idta/Parameters/1/0/Submodel';
 
 // ── IDTA HierarchicalStructures element semantic IDs ─────────────────────────
@@ -52,6 +50,12 @@ export const AIMC_MAPPING_CONFIGURATION         = 'https://admin-shell.io/idta/A
 export const AIMC_INTERFACE_REFERENCE           = 'https://admin-shell.io/idta/AssetInterfacesMappingConfiguration/1/0/InterfaceReference';
 export const AIMC_MAPPING_SOURCE_SINK_RELATIONS = 'https://admin-shell.io/idta/AssetInterfacesMappingConfiguration/1/0/MappingSourceSinkRelations';
 export const AIMC_MAPPING_SOURCE_SINK_RELATION  = 'https://admin-shell.io/idta/AssetInterfacesMappingConfiguration/1/0/MappingSourceSinkRelation';
+
+// ── APSO Product AAS submodel semantic IDs ───────────────────────────────────
+export const BATCH_INFORMATION_SUBMODEL  = 'https://w3id.org/2025/apso#BatchInformationSubmodel';
+export const BILL_OF_MATERIALS_SUBMODEL  = 'https://w3id.org/2025/apso#BillOfMaterialsSubmodel';
+export const REQUIREMENTS_SUBMODEL       = 'https://w3id.org/2025/apso#RequirementsSubmodel';
+export const BILL_OF_PROCESS_SUBMODEL    = 'https://w3id.org/2025/apso#BillOfProcessSubmodel';
 
 // ── Base URL for custom semantic IDs ─────────────────────────────────────────
 export const SEMANTIC_ID_BASE           = 'https://smartproductionlab.aau.dk';
