@@ -2,11 +2,6 @@ import { useState, useRef } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import type { ValidationIssue } from '../../types/resourceaas';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface Props {
-  currentStepId?: string;
-}
-
 const SEVERITY_ICON: Record<string, string> = {
   Violation: '✕',
   Warning: '⚠',
@@ -28,8 +23,7 @@ const MIN_HEIGHT = 80;
 const MAX_HEIGHT = 600;
 const DEFAULT_HEIGHT = 180;
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function GuidancePanel(_props: Props) {
+export function GuidancePanel() {
   const aasNodes = useAppStore((s) => s.aasNodes);
   const validationIssuesByNode = useAppStore((s) => s.validationIssuesByNode);
   const loadingValidateByNode = useAppStore((s) => s.loadingValidateByNode);
