@@ -38,7 +38,7 @@ export function BuilderToolbar() {
       }
     }
     if (envs.length === 0) {
-      window.alert('Could not reach the backend to build the AAS(s). Start the API (scripts/run-api.ps1) and try again.');
+      window.alert('Could not reach the backend to build the AAS(s). Start the backend (scripts/run-backend.ps1) and try again.');
       return;
     }
     if (anyFailed) {
@@ -139,7 +139,12 @@ export function BuilderToolbar() {
         useAppStore.getState().setActiveAasNode(newShellId);
         modelStateBeforeImport.addShellNode(newShellId, newPos);
 
-        importAasJson(json);
+        try {
+          importAasJson(json);
+        } catch {
+          window.alert('Failed to parse the imported AAS JSON.');
+          return;
+        }
 
         // Read updated state synchronously
         const appState = useAppStore.getState();

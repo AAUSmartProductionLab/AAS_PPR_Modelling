@@ -5,7 +5,7 @@ import { useModelStore } from '../../../store/useModelStore';
 import { buildServerAasJson } from '../../../hooks/useValidation';
 
 const BACKEND_UNAVAILABLE_MSG =
-  'Could not reach the backend to build this AAS. Start the API (scripts/run-api.ps1) and try again.';
+  'Could not reach the backend to build this AAS. Start the backend (scripts/run-backend.ps1) and try again.';
 
 export const AasShellNode = memo(function AasShellNode({ id, selected }: NodeProps) {
   const aasNodes = useAppStore((s) => s.aasNodes);
