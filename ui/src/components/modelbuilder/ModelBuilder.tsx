@@ -20,7 +20,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { useAppStore, REQUIRED_SUBMODELS, type SubmodelKey } from '../../store/useAppStore';
+import { useAppStore, getRequiredSubmodels, type SubmodelKey } from '../../store/useAppStore';
 import { SUBMODELS } from '../../aas/submodelRegistry';
 import { applyConnection, removeConnectionForEdge } from './connectionRules';
 import { useModelStore, SHELL_NODE_ID, createShellNodeId } from '../../store/useModelStore';
@@ -96,7 +96,7 @@ function ModelBuilderCanvas() {
       ));
     }
 
-    const toAdd = REQUIRED_SUBMODELS.filter(
+    const toAdd = getRequiredSubmodels(useAppStore.getState().aasType).filter(
       (key) => !existing.some((n) => (n.data as SubmodelNodeData)?.submodelKey === key)
     );
     if (toAdd.length === 0) return;

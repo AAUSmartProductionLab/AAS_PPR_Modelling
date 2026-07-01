@@ -9,7 +9,7 @@ import { parseAasJsonToProfile } from '../aas/parsers/parseAasToProfile';
 import {
   SUBMODELS,
   SUBMODEL_KEYS,
-  REQUIRED_SUBMODEL_KEYS,
+  getRequiredSubmodelKeys,
   IDSHORT_TO_KEY,
 } from '../aas/submodelRegistry';
 
@@ -31,7 +31,9 @@ export type SubmodelKey =
 export type SubmodelTab = SubmodelKey;
 
 // ── Derived from the submodel registry (single source of truth) ───────────────
-export const REQUIRED_SUBMODELS: SubmodelKey[] = REQUIRED_SUBMODEL_KEYS;
+
+/** Required submodel keys for the given AAS type (Resource → Nameplate+HierarchicalStructures, Product → BatchInformation+BillOfMaterials+BillOfProcess). */
+export const getRequiredSubmodels = (aasType: AASType): SubmodelKey[] => getRequiredSubmodelKeys(aasType);
 
 /** All submodel keys in catalog order. Type-aware filtering lives in the catalog. */
 export const ALL_SUBMODELS: SubmodelKey[] = SUBMODEL_KEYS;
@@ -64,7 +66,7 @@ export const DEFAULT_AAS_NODE_STATE: AASNodeState = {
   identityGlobalAssetId: '',
   identityAssetType: '',
   aasType: 'Resource',
-  selectedSubmodels: [...REQUIRED_SUBMODELS],
+  selectedSubmodels: [],
   parsedProfile: null,
 };
 
@@ -195,7 +197,7 @@ const INITIAL_STATE = {
   activeAasNodeId: INITIAL_SHELL_NODE_ID,
   wizardStep: 0,
   aasType: 'Resource' as const,
-  selectedSubmodels: [...REQUIRED_SUBMODELS] as SubmodelKey[],
+  selectedSubmodels: [] as SubmodelKey[],
   identitySystemId: '',
   identityIdShort: '',
   identityId: '',
@@ -295,7 +297,7 @@ export const useAppStore = create<AppState>()(
 
   toggleSubmodel: (sm) => {
     const s = get();
-    if (REQUIRED_SUBMODELS.includes(sm)) return;
+    if (getRequiredSubmodelKeys(s.aasType).includes(sm)) return;
     const isAdding = !s.selectedSubmodels.includes(sm);
     const next = isAdding
       ? [...s.selectedSubmodels, sm]
@@ -330,14 +332,18 @@ export const useAppStore = create<AppState>()(
 
   initProfileFromIdentity: () => {
     const s = get();
-    const { identitySystemId, identityIdShort, identityId, identityGlobalAssetId, selectedSubmodels, parsedProfile } = s;
+    const { identitySystemId, identityIdShort, identityId, identityGlobalAssetId, aasType, selectedSubmodels, parsedProfile } = s;
     if (!identitySystemId) return;
+
+    // Only seed submodels valid for the current AAS type
+    const requiredForType = getRequiredSubmodelKeys(aasType);
+    const validSubmodels = selectedSubmodels.filter((sm) => SUBMODELS[sm].aasTypes.includes(aasType));
 
     if (parsedProfile && parsedProfile[identitySystemId]) {
       const existing = parsedProfile[identitySystemId];
       const updated = { ...existing };
       let changed = false;
-      for (const sm of selectedSubmodels) {
+      for (const sm of validSubmodels) {
         const key = SUBMODEL_YAML_KEYS[sm] as keyof typeof updated;
         if (!(key in updated)) {
           (updated as Record<string, unknown>)[key] = {};
@@ -348,7 +354,7 @@ export const useAppStore = create<AppState>()(
       return;
     }
 
-    const submodelEntries = Object.fromEntries(selectedSubmodels.map((sm) => [SUBMODEL_YAML_KEYS[sm], {}]));
+    const submodelEntries = Object.fromEntries(validSubmodels.map((sm) => [SUBMODEL_YAML_KEYS[sm], {}]));
     const profile: ResourceAASProfile = {
       [identitySystemId]: { idShort: identityIdShort, id: identityId, globalAssetId: identityGlobalAssetId, ...submodelEntries },
     };
@@ -440,7 +446,8 @@ export const useAppStore = create<AppState>()(
     const presentKeys: SubmodelKey[] = presentSubmodelIdShorts
       .filter((id) => IDSHORT_TO_KEY[id])
       .map((id) => IDSHORT_TO_KEY[id]);
-    const finalKeys = [...new Set([...REQUIRED_SUBMODELS, ...presentKeys])];
+    const requiredForType = getRequiredSubmodelKeys(get().aasType);
+    const finalKeys = [...new Set([...requiredForType, ...presentKeys])];
 
     const profile: ResourceAASProfile = { [systemId]: config };
 

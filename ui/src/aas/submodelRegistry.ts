@@ -190,8 +190,10 @@ export function submodelKeysForType(aasType: AASType): SubmodelKey[] {
   return SUBMODEL_KEYS.filter((k) => SUBMODELS[k].aasTypes.includes(aasType) && !SUBMODELS[k].hidden);
 }
 
-/** Keys that are always present on a new AAS (required), in display order. */
-export const REQUIRED_SUBMODEL_KEYS = SUBMODEL_KEYS.filter((k) => SUBMODELS[k].required);
+/** Keys that are always present on a new AAS of a given type (required), in display order. */
+export function getRequiredSubmodelKeys(aasType: AASType): SubmodelKey[] {
+  return SUBMODEL_KEYS.filter((k) => SUBMODELS[k].required && SUBMODELS[k].aasTypes.includes(aasType));
+}
 
 /** Reverse map: built/aliased idShort -> SubmodelKey (for importing an AAS). */
 export const IDSHORT_TO_KEY: Record<string, SubmodelKey> = Object.fromEntries(

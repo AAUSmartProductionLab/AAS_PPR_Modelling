@@ -10,6 +10,10 @@ import { HierarchicalStructuresForm } from '../../submodels/HierarchicalStructur
 import { OperationalDataForm } from '../../submodels/OperationalDataForm';
 import { ParametersForm } from '../../submodels/ParametersForm';
 import { AIMCForm } from '../../submodels/AIMCForm';
+import { BatchInformationForm } from '../../submodels/BatchInformationForm';
+import { BillOfMaterialsForm } from '../../submodels/BillOfMaterialsForm';
+import { BillOfProcessForm } from '../../submodels/BillOfProcessForm';
+import { RequirementsForm } from '../../submodels/RequirementsForm';
 import { SUBMODEL_META } from '../catalogMeta';
 import { AdvancedContext } from '../../shared/AdvancedContext';
 
@@ -22,6 +26,10 @@ const FORM_MAP: Record<SubmodelKey, React.ComponentType> = {
   Variables: OperationalDataForm,
   Parameters: ParametersForm,
   AIMC: AIMCForm,
+  BatchInformation: BatchInformationForm,
+  BillOfMaterials: BillOfMaterialsForm,
+  Requirements: RequirementsForm,
+  BillOfProcess: BillOfProcessForm,
 };
 
 export function PropertyEditorModal() {

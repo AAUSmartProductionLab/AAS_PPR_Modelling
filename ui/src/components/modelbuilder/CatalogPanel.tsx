@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useAppStore, REQUIRED_SUBMODELS, type SubmodelKey, type AASType } from '../../store/useAppStore';
+import { useAppStore, getRequiredSubmodels, type SubmodelKey, type AASType } from '../../store/useAppStore';
 import { useModelStore, createShellNodeId } from '../../store/useModelStore';
 import { submodelKeysForType } from '../../aas/submodelRegistry';
 import { SUBMODEL_META } from './catalogMeta';
@@ -102,7 +102,7 @@ export function CatalogPanel() {
                   )}
                   {keys.map((key) => {
                     const meta = SUBMODEL_META[key];
-                    const isRequired = REQUIRED_SUBMODELS.includes(key);
+                    const isRequired = getRequiredSubmodels(type).includes(key);
                     return (
                       <div
                         key={key}

@@ -1,5 +1,5 @@
 import { Fragment, useState, useRef, useEffect } from 'react';
-import { useAppStore, ALL_SUBMODELS, REQUIRED_SUBMODELS, type SubmodelKey } from '../../store/useAppStore';
+import { useAppStore, ALL_SUBMODELS, getRequiredSubmodels, type SubmodelKey } from '../../store/useAppStore';
 import { SUBMODEL_META } from './catalogMeta';
 import { useGenerateAI, type PipelineStages, type StageStatus } from '../../hooks/useGenerateAI';
 import { api, type GenerateAasRequest, type GenerationConfig, type SupplementalFilePayload } from '../../api/client';
@@ -151,7 +151,7 @@ export function GenerateAIDialog({ isOpen, onClose, onImport }: GenerateAIDialog
   const [uploadedFiles, setUploadedFiles] = useState<UploadedSpecFile[]>([]);
   const [assetName, setAssetName] = useState(identitySystemId || '');
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl);
-  const [selectedSubmodels, setSelectedSubmodels] = useState<SubmodelKey[]>([...REQUIRED_SUBMODELS]);
+  const [selectedSubmodels, setSelectedSubmodels] = useState<SubmodelKey[]>([...getRequiredSubmodels('Resource')]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- Generation options ---
@@ -222,7 +222,7 @@ export function GenerateAIDialog({ isOpen, onClose, onImport }: GenerateAIDialog
   const isAuthError = !!errorMsg && /api[_\s-]?key|unauthorized|forbidden|\b401\b|\b403\b|invalid.*key|permission denied|no api key configured/i.test(errorMsg);
 
   const toggleSubmodel = (key: SubmodelKey) => {
-    if (REQUIRED_SUBMODELS.includes(key)) return;
+    if (getRequiredSubmodels('Resource').includes(key)) return;
     setSelectedSubmodels((prev) =>
       prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key],
     );
@@ -451,7 +451,7 @@ export function GenerateAIDialog({ isOpen, onClose, onImport }: GenerateAIDialog
                 <div className="submodel-checkbox-grid">
                   {ALL_SUBMODELS.map((key) => {
                     const meta = SUBMODEL_META[key];
-                    const required = REQUIRED_SUBMODELS.includes(key);
+                    const required = getRequiredSubmodels('Resource').includes(key);
                     const checked = selectedSubmodels.includes(key);
                     return (
                       <label key={key}

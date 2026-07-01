@@ -204,62 +204,82 @@ export interface AIMCMappingConfig {
 }
 
 // ── Product (APSO) submodels ─────────────────────────────────────────────────
+//
+// These types directly mirror the APSO ontology modules and the Python
+// backend builders in Transformation/AAS_Builder/AAS_generation/submodels/.
+// Cardinalities follow the ontology: [1] = required, [0..1] = optional.
 
+/** BatchInformation submodel — APSO batch_information.ttl */
 export interface BatchInformationConfig {
-  BatchID: string;
-  ProductionDate?: string;       // ISO date
-  ExpiryDate?: string;           // ISO date
-  Quantity?: string;
-  UnitOfMeasure?: string;
-  Materials?: Record<string, BatchMaterial>;
+  ProductName: string;          // [1]
+  ProductFamily?: string;       // [0..1]
+  OrderNumber?: string;         // [0..1]
+  OrderTimestamp?: string;      // [0..1]
+  Quantity: string;             // [1]
+  Packaging?: string;           // [0..1]
+  Status: string;               // [1]
 }
 
-export interface BatchMaterial {
-  materialName: string;
-  lotNumber?: string;
-  quantity?: string;
-  unit?: string;
-}
-
+/** Bill of Materials submodel — APSO bill_of_materials.ttl */
 export interface ProductBillOfMaterialsConfig {
-  Name: string;
-  Components?: Record<string, ProductBomComponent>;
+  EntryNodeId?: string;         // globalAssetId for the EntryNode entity
+  ArcheType: string;            // [1] e.g. 'OneUpAndOneDown'
+  JointConnections?: Record<string, BomJointConnection>;
+  JointParams?: Record<string, BomJointParams>;
 }
 
-export interface ProductBomComponent {
-  componentId: string;
-  description?: string;
-  quantity?: string;
-  unitOfMeasure?: string;
-  /** Reference to another AAS (part/sub-assembly). */
-  aasReference?: string;
+export interface BomJointConnection {
+  first: string;               // reference to first BomEntity
+  second: string;              // reference to second BomEntity
+  jointType: string;           // JointType annotation [1]
+  jointParamsRef: string;      // JointParamsRef annotation — idShort of a JointParams entry
+  jointStandard?: string;      // JointStandard annotation [0..1]
 }
 
-export interface RequirementsConfig {
-  Name: string;
-  Requirements?: Record<string, ProductRequirement>;
+export interface BomJointParams {
+  typeParams?: Record<string, BomTypeParam>;
+  typeFile?: string;           // URI/path to a joint data file
+  typeFileContentType?: string;
 }
 
-export interface ProductRequirement {
-  identifier: string;
-  description: string;
-  category?: string;
-  priority?: 'High' | 'Medium' | 'Low';
-  status?: 'Open' | 'InProgress' | 'Closed';
+export interface BomTypeParam {
+  value: string;
 }
 
+/** Bill of Process submodel — APSO bill_of_process.ttl */
 export interface BillOfProcessConfig {
-  Name: string;
-  ProcessSteps?: Record<string, ProcessStep>;
+  RecipeId: string;                   // [1]
+  Processes?: ProcessEntry[];         // [1] SML containing process entries
 }
 
-export interface ProcessStep {
-  sequenceNumber: number;
-  description: string;
-  duration?: string;            // ISO 8601 duration
-  requiredCapabilities?: string[];
-  /** References to resource AAS that perform this step. */
-  assignedResources?: string[];
+export type ProcessEntryType = 'ProcessProperty' | 'ProcessSMC' | 'ProcessStructureSMC';
+
+export interface ProcessEntry {
+  type: ProcessEntryType;
+  idShort?: string;
+  value?: string;              // ProcessProperty: the process name/label
+  processId?: string;          // ProcessSMC/ProcessStructureSMC
+  semanticId?: string;
+  sequenceNumber?: number;
+  description?: string;
+  estimatedDuration?: {
+    value: string;
+    semanticId?: string;
+  };
+}
+
+/** Requirements submodel — APSO requirements.ttl */
+export interface RequirementsConfig {
+  Requirements?: Record<string, ApsotRequirement>;
+}
+
+export interface ApsotRequirement {
+  requirementId: string;       // [1]
+  semanticId: string;          // [1]
+  description?: string;        // [0..1]
+  value: string;               // [1]
+  unit?: string;               // [0..1]
+  unitSemanticId?: string;     // [0..1]
 }
 
 // ── API response types (mirrors api/models.py) ────────────────────────────────
