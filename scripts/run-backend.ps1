@@ -1,5 +1,5 @@
 # Start the FastAPI backend on http://localhost:8000
-# Usage (from repo root):  ./scripts/run-api.ps1
+# Usage (from repo root):  ./scripts/run-backend.ps1
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot

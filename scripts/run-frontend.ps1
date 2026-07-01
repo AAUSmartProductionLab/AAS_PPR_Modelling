@@ -1,5 +1,5 @@
 # Start the Vite dev server on http://localhost:5173
-# Usage (from repo root):  ./scripts/run-ui.ps1
+# Usage (from repo root):  ./scripts/run-frontend.ps1
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
