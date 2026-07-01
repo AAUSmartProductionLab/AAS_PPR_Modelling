@@ -28,7 +28,7 @@ from api.models import (  # noqa: E402
     ValidateResponse,
     ValidationIssue,
 )
-from Validation.Validator.validator import run_shacl  # noqa: E402
+from Validation.Validator.validator import run_shacl, run_shacl_on_dict  # noqa: E402
 from Validation.message_field_map import map_issue_to_field  # noqa: E402
 
 router = APIRouter()
@@ -56,10 +56,18 @@ def _issues_from_shacl(all_issues: list[dict]) -> list[ValidationIssue]:
 
 
 def _run_validation(aas_json: str, aas_type: str) -> tuple[bool, list[ValidationIssue], str]:
+    """Validate AAS JSON string via SHACL (disk-backed, for /api/validate endpoint)."""
+    import json as _json
+    document = _json.loads(aas_json)
+    return _run_validation_on_dict(document, aas_type)
+
+
+def _run_validation_on_dict(aas_dict: dict, aas_type: str) -> tuple[bool, list[ValidationIssue], str]:
+    """Validate an AAS Environment dict via SHACL (in-memory, no disk round-trip)."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
         try:
-            conforms, all_issues, _meta, _onto = run_shacl(aas_json, tmp, aas_type)
+            conforms, all_issues, _meta, _onto = run_shacl_on_dict(aas_dict, tmp, aas_type)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"validation error: {exc}")
 
@@ -103,8 +111,6 @@ async def validate_profile(req: ValidateProfileRequest) -> ValidateProfileRespon
             aas_dict = generator.build_aas_dict(apply_guidance=False)
         aas_json = json.dumps(aas_dict, ensure_ascii=False)
     except Exception as exc:
-        # Surface a build failure as a validation issue, not a 500, so the UI's
-        # live validation keeps working while the user is mid-edit.
         return ValidateProfileResponse(
             conforms=False,
             issues=[ValidationIssue(severity="Violation", message=f"AAS build failed: {exc}")],
@@ -112,7 +118,7 @@ async def validate_profile(req: ValidateProfileRequest) -> ValidateProfileRespon
             aas_json="",
         )
 
-    conforms, issues, report_ttl = _run_validation(aas_json, req.aas_type)
+    conforms, issues, report_ttl = _run_validation_on_dict(aas_dict, req.aas_type)
     return ValidateProfileResponse(
         conforms=conforms, issues=issues, report_ttl=report_ttl, aas_json=aas_json
     )

@@ -10,6 +10,10 @@ from .process_submodels_builder import (
     RequiredCapabilitiesSubmodelBuilder,
     PolicySubmodelBuilder,
 )
+from .batch_information_builder import BatchInformationSubmodelBuilder
+from .bill_of_materials_builder import BillOfMaterialsSubmodelBuilder
+from .bill_of_process_builder import BillOfProcessSubmodelBuilder
+from .requirements_builder import RequirementsSubmodelBuilder
 
 __all__ = [
     "AssetInterfacesBuilder",
@@ -22,4 +26,8 @@ __all__ = [
     "ProcessInformationSubmodelBuilder",
     "RequiredCapabilitiesSubmodelBuilder",
     "PolicySubmodelBuilder",
+    "BatchInformationSubmodelBuilder",
+    "BillOfMaterialsSubmodelBuilder",
+    "BillOfProcessSubmodelBuilder",
+    "RequirementsSubmodelBuilder",
 ]

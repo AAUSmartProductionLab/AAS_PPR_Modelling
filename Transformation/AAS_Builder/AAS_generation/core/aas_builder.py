@@ -168,6 +168,16 @@ class AASBuilder:
         if 'Policy' in config:
             submodel_names.append('Policy')
 
+        # Add Product (APSO) submodels if they exist in config
+        if 'BatchInformation' in config:
+            submodel_names.append('BatchInformation')
+        if 'BillOfMaterials' in config:
+            submodel_names.append('BillOfMaterials')
+        if 'BillOfProcess' in config:
+            submodel_names.append('BillOfProcess')
+        if 'Requirements' in config:
+            submodel_names.append('Requirements')
+
         return submodel_names
 
     def _has_interface_actions(self, config: Dict) -> bool:

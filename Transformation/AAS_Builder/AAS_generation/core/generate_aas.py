@@ -32,6 +32,11 @@ from ..submodels import (
     ProcessInformationSubmodelBuilder,
     RequiredCapabilitiesSubmodelBuilder,
     PolicySubmodelBuilder,
+    # Product (APSO) builders
+    BatchInformationSubmodelBuilder,
+    BillOfMaterialsSubmodelBuilder,
+    BillOfProcessSubmodelBuilder,
+    RequirementsSubmodelBuilder,
 )
 
 # SHACL validation (Validation.Validator.run_shacl) is the source of truth for
@@ -260,6 +265,20 @@ class AASGenerator:
             self.base_url, self.semantic_factory, self.element_factory
         )
         self.policy_builder = PolicySubmodelBuilder(
+            self.base_url, self.semantic_factory, self.element_factory
+        )
+
+        # Product (APSO) builders
+        self.batch_info_builder = BatchInformationSubmodelBuilder(
+            self.base_url, self.semantic_factory, self.element_factory
+        )
+        self.bom_builder = BillOfMaterialsSubmodelBuilder(
+            self.base_url, self.semantic_factory, self.element_factory
+        )
+        self.bop_builder = BillOfProcessSubmodelBuilder(
+            self.base_url, self.semantic_factory, self.element_factory
+        )
+        self.requirements_builder = RequirementsSubmodelBuilder(
             self.base_url, self.semantic_factory, self.element_factory
         )
 
@@ -663,6 +682,18 @@ class AASGenerator:
 
         if cfg.get('Skills'):
             obj_store.add(self.skills_builder.build(self.system_id, cfg))
+
+        # Product (APSO) submodels
+        if cfg.get('BatchInformation'):
+            obj_store.add(self.batch_info_builder.build(self.system_id, cfg))
+        if cfg.get('BillOfMaterials'):
+            obj_store.add(self.bom_builder.build(self.system_id, cfg))
+        if cfg.get('BillOfProcess'):
+            obj_store.add(self.bop_builder.build(self.system_id, cfg))
+        if cfg.get('Requirements'):
+            req_result = self.requirements_builder.build(self.system_id, cfg)
+            if req_result is not None:
+                obj_store.add(req_result)
 
         # Generate Process AAS specific submodels (if config contains them)
         process_submodels = self._build_process_submodels()
