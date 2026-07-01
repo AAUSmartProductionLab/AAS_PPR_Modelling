@@ -1,0 +1,128 @@
+# Semantic ID → RDF type mappings for the AAS-to-RDF converter.
+# Single source of truth for all IDTA/ARSO/APSO semantic ID resolution.
+#
+# Format:
+#   submodel_types: list of {ids: [string, ...], type: "prefix:LocalName"}
+#   sme_types:      list of {ids: [string, ...], type: "prefix:LocalName"}
+#   typed_links:    map of "prefix:SubmodelType" → "prefix:hasLinkProperty"
+#
+# Namespace prefixes are resolved against the `namespaces` section below.
+# Adding a new submodel = adding one entry here + one builder in submodels/.
+namespaces:
+  aas: "https://admin-shell.io/aas/3/1/"
+  arso: "https://w3id.org/2025/arso#"
+  apso: "https://w3id.org/2025/apso#"
+
+# ── Submodel-level semanticId → ARSO/APSO type ──────────────────────────────
+submodel_types:
+  # Resource (ARSO)
+  - ids:
+      - "https://admin-shell.io/idta/nameplate/3/0/Nameplate"
+      - "https://admin-shell.io/zvei/nameplate/2/0/Nameplate"
+    type: "arso:DigitalNameplateSubmodel"
+  - ids:
+      - "https://admin-shell.io/idta/HierarchicalStructures/1/1/Submodel"
+    type: "arso:HierarchicalStructuresSubmodel"
+  - ids:
+      - "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/Submodel"
+    type: "arso:AIDSubmodel"
+  - ids:
+      - "https://admin-shell.io/idta/SubmodelTemplate/CapabilityDescription/1/0"
+      - "https://admin-shell.io/idta/CapabilityDescription/1/0"
+    type: "arso:CapabilitiesSubmodel"
+  - ids:
+      - "https://admin-shell.io/idta/ControlComponentType/1/0"
+      - "https://smartproductionlab.aau.dk/ARSO/Skills/1/0/Submodel"
+    type: "arso:SkillsSubmodel"
+  - ids:
+      - "https://smartproductionlab.aau.dk/ARSO/OperationalData/1/0/Submodel"
+    type: "arso:OperationalDataSubmodel"
+  - ids:
+      - "https://smartproductionlab.aau.dk/ARSO/Parameters/1/0/Submodel"
+    type: "arso:ParametersSubmodel"
+  # Product (APSO)
+  - ids:
+      - "https://w3id.org/2025/apso#BatchInformationSubmodel"
+    type: "apso:BatchInformationSubmodel"
+  - ids:
+      - "https://w3id.org/2025/apso#BillOfMaterialsSubmodel"
+    type: "apso:BillOfMaterialsSubmodel"
+  - ids:
+      - "https://w3id.org/2025/apso#BillOfProcessSubmodel"
+    type: "apso:BillOfProcessSubmodel"
+  - ids:
+      - "https://w3id.org/2025/apso#RequirementsSubmodel"
+    type: "apso:RequirementsSubmodel"
+
+# ── SME-level semanticId → ARSO/APSO type ───────────────────────────────────
+sme_types:
+  # Nameplate elements
+  - ids:
+      - "https://admin-shell.io/zvei/nameplate/1/0/Nameplate/ManufacturerName"
+      - "0112/2///61987#ABA565#009"
+    type: "arso:ManufacturerNameMLP"
+  - ids:
+      - "https://admin-shell.io/zvei/nameplate/1/0/Nameplate/ManufacturerProductDesignation"
+      - "0112/2///61987#ABA567#009"
+    type: "arso:ManufacturerProductDesignationMLP"
+  - ids:
+      - "https://admin-shell.io/zvei/nameplate/1/0/Nameplate/ContactInformation"
+      - "https://admin-shell.io/zvei/nameplate/1/0/ContactInformations/AddressInformation"
+    type: "arso:AddressInformationSMC"
+  - ids:
+      - "https://admin-shell.io/zvei/nameplate/1/0/Nameplate/OrderCodeOfManufacturer"
+      - "0112/2///61987#ABA950#008"
+    type: "arso:OrderCodeProperty"
+  - ids:
+      - "0112/2///61987#ABN590#002"
+    type: "arso:URIOfTheProductProperty"
+  # AddressInformation children (ECLASS IRDIs)
+  - ids: ["0173-1#02-AAO128#002"]
+    type: "arso:AddressStreetMLP"
+  - ids: ["0173-1#02-AAO129#002"]
+    type: "arso:AddressZipcodeMLP"
+  - ids: ["0173-1#02-AAO132#002"]
+    type: "arso:AddressCityTownMLP"
+  - ids: ["0173-1#02-AAO134#002"]
+    type: "arso:AddressNationalCodeMLP"
+  # HierarchicalStructures elements
+  - ids: ["https://admin-shell.io/idta/HierarchicalStructures/ArcheType/1/0"]
+    type: "arso:ArcheTypeProperty"
+  - ids: ["https://admin-shell.io/idta/HierarchicalStructures/EntryNode/1/0"]
+    type: "arso:EntryNodeEntity"
+  - ids: ["https://admin-shell.io/idta/HierarchicalStructures/Node/1/0"]
+    type: "arso:NodeEntity"
+  - ids: ["https://admin-shell.io/idta/HierarchicalStructures/HasPart/1/0"]
+    type: "arso:HasPartRelationship"
+  - ids: ["https://admin-shell.io/idta/HierarchicalStructures/IsPartOf/1/0"]
+    type: "arso:IsPartOfRelationship"
+  - ids: ["https://admin-shell.io/idta/HierarchicalStructures/SameAs/1/0"]
+    type: "arso:SameAsRelationship"
+  - ids: ["https://admin-shell.io/idta/HierarchicalStructures/BulkCount/1/0"]
+    type: "arso:BulkCountProperty"
+  # Capabilities elements
+  - ids: ["https://smartfactory.de/aas/submodel/OfferedCapabilityDescription/CapabilitySet#1/0"]
+    type: "arso:CapabilitySetSMC"
+  - ids: ["https://smartfactory.de/aas/submodel/OfferedCapabilityDescription/CapabilitySet/CapabilityContainer#1/0"]
+    type: "arso:CapabilityContainerSMC"
+  - ids: ["https://admin-shell.io/idta/CapabilityDescription/Capability/1/0"]
+    type: "arso:CapabilityElement"
+  - ids: ["https://admin-shell.io/idta/CapabilityDescription/CapabilityRealizedBy/1/0"]
+    type: "arso:CapabilityRealizedBySML"
+  # AID elements
+  - ids: ["https://admin-shell.io/idta/AssetInterfacesDescription/1/0/Interface"]
+    type: "arso:InterfaceSMC"
+  - ids: ["https://admin-shell.io/idta/AssetInterfacesDescription/1/0/EndpointMetadata"]
+    type: "arso:EndpointMetadataSMC"
+  - ids: ["https://admin-shell.io/idta/AssetInterfacesDescription/1/0/InteractionMetadata"]
+    type: "arso:InteractionMetadataSMC"
+
+# ── Submodel type → typed-link property on the AAS shell ────────────────────
+typed_links:
+  "arso:DigitalNameplateSubmodel": "arso:hasDigitalNameplateSubmodel"
+  "arso:HierarchicalStructuresSubmodel": "arso:hasHierarchicalStructuresSubmodel"
+  "arso:AIDSubmodel": "arso:hasAIDSubmodel"
+  "arso:CapabilitiesSubmodel": "arso:hasCapabilitiesSubmodel"
+  "arso:SkillsSubmodel": "arso:hasSkillsSubmodel"
+  "arso:OperationalDataSubmodel": "arso:hasOperationalDataSubmodel"
+  "arso:ParametersSubmodel": "arso:hasParametersSubmodel"

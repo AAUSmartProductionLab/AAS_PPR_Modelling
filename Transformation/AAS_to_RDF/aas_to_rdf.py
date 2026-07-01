@@ -1,6 +1,8 @@
 """
-Convert AAS JSON to RDF/Turtle for ARSO-based validation.
+Convert AAS JSON to RDF/Turtle for ARSO/APSO-based SHACL validation.
 
+Semantic ID → RDF type mappings are loaded from semantic_id_mappings.yaml
+so adding a submodel or SME type is a one-line YAML edit.
 """
 from __future__ import annotations
 
@@ -8,8 +10,9 @@ import argparse
 import json
 import re
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
+import yaml
 from rdflib import Graph, Literal, Namespace, URIRef
 from rdflib.namespace import RDF, RDFS, XSD
 
@@ -19,179 +22,56 @@ CSS  = Namespace("http://www.w3id.org/hsu-aut/css#")
 ARSO = Namespace("https://w3id.org/2025/arso#")
 APSO = Namespace("https://w3id.org/2025/apso#")
 
-# ---------------------------------------------------------------------------
-# Semantic ID constants -- all known variants per submodel/SME type.
-# Multiple variants exist because the generation pipeline and the IDTA spec
-# have diverged over time. The converter recognises all of them.
-# ---------------------------------------------------------------------------
-
-# Submodel-level semantic IDs
-_SM_NAMEPLATE_IDS = frozenset({
-    "https://admin-shell.io/idta/nameplate/3/0/Nameplate",  # IDTA 02006-3-0 (canonical)
-    "https://admin-shell.io/zvei/nameplate/2/0/Nameplate",  # ZVEI v2 (legacy pipeline)
-})
-_SM_HS_IDS = frozenset({
-    "https://admin-shell.io/idta/HierarchicalStructures/1/1/Submodel",
-})
-_SM_AID_IDS = frozenset({
-    "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/Submodel",
-})
-_SM_CAPABILITIES_IDS = frozenset({
-    "https://admin-shell.io/idta/SubmodelTemplate/CapabilityDescription/1/0",  # ontology
-    "https://admin-shell.io/idta/CapabilityDescription/1/0",                    # legacy pipeline
-})
-_SM_SKILLS_IDS = frozenset({
-    "https://admin-shell.io/idta/ControlComponentType/1/0",           # ontology (IDTA 02015)
-    "https://smartproductionlab.aau.dk/ARSO/Skills/1/0/Submodel",    # legacy pipeline
-})
-_SM_OPERATIONAL_DATA_IDS = frozenset({
-    "https://smartproductionlab.aau.dk/ARSO/OperationalData/1/0/Submodel",
-})
-_SM_PARAMETERS_IDS = frozenset({
-    "https://smartproductionlab.aau.dk/ARSO/Parameters/1/0/Submodel",
-})
-
-# SME-level semantic IDs (nameplate elements)
-_NP_MANUFACTURER_NAME_IDS = frozenset({
-    "https://admin-shell.io/zvei/nameplate/1/0/Nameplate/ManufacturerName",
-    "0112/2///61987#ABA565#009",  # IRDI from IDTA 02006-3-0 template
-})
-_NP_MANUFACTURER_PRODUCT_DESIGNATION_IDS = frozenset({
-    "https://admin-shell.io/zvei/nameplate/1/0/Nameplate/ManufacturerProductDesignation",
-    "0112/2///61987#ABA567#009",
-})
-_NP_CONTACT_INFORMATION_IDS = frozenset({
-    "https://admin-shell.io/zvei/nameplate/1/0/Nameplate/ContactInformation",
-    "https://admin-shell.io/zvei/nameplate/1/0/ContactInformations/AddressInformation",
-})
-_NP_ORDER_CODE_IDS = frozenset({
-    "https://admin-shell.io/zvei/nameplate/1/0/Nameplate/OrderCodeOfManufacturer",
-    "0112/2///61987#ABA950#008",
-})
-_NP_URI_OF_PRODUCT_IDS = frozenset({
-    "0112/2///61987#ABN590#002",
-})
-
-# SME-level semantic IDs (hierarchical structures elements)
-_HS_ARCHETYPE_IDS = frozenset({
-    "https://admin-shell.io/idta/HierarchicalStructures/ArcheType/1/0",
-})
-_HS_ENTRY_NODE_IDS = frozenset({
-    "https://admin-shell.io/idta/HierarchicalStructures/EntryNode/1/0",
-})
-_HS_NODE_IDS = frozenset({
-    "https://admin-shell.io/idta/HierarchicalStructures/Node/1/0",
-})
-_HS_HAS_PART_IDS = frozenset({
-    "https://admin-shell.io/idta/HierarchicalStructures/HasPart/1/0",
-})
-_HS_IS_PART_OF_IDS = frozenset({
-    "https://admin-shell.io/idta/HierarchicalStructures/IsPartOf/1/0",
-})
-_HS_SAME_AS_IDS = frozenset({
-    "https://admin-shell.io/idta/HierarchicalStructures/SameAs/1/0",
-})
-_HS_BULK_COUNT_IDS = frozenset({
-    "https://admin-shell.io/idta/HierarchicalStructures/BulkCount/1/0",
-})
-
-# SME-level semantic IDs (AddressInformation child elements — ECLASS IRDIs per IDTA 02002)
-_NP_ADDRESS_STREET_IDS = frozenset({
-    "0173-1#02-AAO128#002",
-})
-_NP_ADDRESS_ZIPCODE_IDS = frozenset({
-    "0173-1#02-AAO129#002",
-})
-_NP_ADDRESS_CITY_TOWN_IDS = frozenset({
-    "0173-1#02-AAO132#002",
-})
-_NP_ADDRESS_NATIONAL_CODE_IDS = frozenset({
-    "0173-1#02-AAO134#002",
-})
-
-# SME-level semantic IDs (Capabilities elements)
-_CAP_SET_IDS = frozenset({
-    "https://smartfactory.de/aas/submodel/OfferedCapabilityDescription/CapabilitySet#1/0",
-})
-_CAP_CONTAINER_IDS = frozenset({
-    "https://smartfactory.de/aas/submodel/OfferedCapabilityDescription/CapabilitySet/CapabilityContainer#1/0",
-})
-_CAP_ELEMENT_IDS = frozenset({
-    "https://admin-shell.io/idta/CapabilityDescription/Capability/1/0",
-})
-_CAP_REALIZED_BY_IDS = frozenset({
-    "https://admin-shell.io/idta/CapabilityDescription/CapabilityRealizedBy/1/0",
-})
-
-# SME-level semantic IDs (AID elements)
-_AID_INTERFACE_IDS = frozenset({
-    "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/Interface",
-})
-_AID_ENDPOINT_METADATA_IDS = frozenset({
-    "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/EndpointMetadata",
-})
-_AID_INTERACTION_METADATA_IDS = frozenset({
-    "https://admin-shell.io/idta/AssetInterfacesDescription/1/0/InteractionMetadata",
-})
+_MAPPINGS_DIR = Path(__file__).resolve().parent
+_MAPPINGS_PATH = _MAPPINGS_DIR / "semantic_id_mappings.yaml"
 
 
-def _build_sid_map(pairs: list[tuple[frozenset[str], URIRef]]) -> dict[str, URIRef]:
-    """Flatten a list of (id_set, arso_type) pairs into a single lookup dict."""
-    out: dict[str, URIRef] = {}
-    for ids, arso_type in pairs:
-        for sid in ids:
-            out[sid] = arso_type
-    return out
+def _resolve_ns(ns_map: dict[str, str], prefixed: str) -> URIRef:
+    """Resolve 'prefix:LocalName' → URIRef using the namespaces dict."""
+    if ":" in prefixed:
+        prefix, local = prefixed.split(":", 1)
+        base = ns_map.get(prefix)
+        if base is not None:
+            return URIRef(base + local)
+    return URIRef(prefixed)
 
 
-# Submodel-level semanticId -> ARSO subclass (all known variants)
-SUBMODEL_TYPE_BY_SEMANTIC_ID: dict[str, URIRef] = _build_sid_map([
-    (_SM_NAMEPLATE_IDS,        ARSO.DigitalNameplateSubmodel),
-    (_SM_HS_IDS,               ARSO.HierarchicalStructuresSubmodel),
-    (_SM_AID_IDS,              ARSO.AIDSubmodel),
-    (_SM_CAPABILITIES_IDS,     ARSO.CapabilitiesSubmodel),
-    (_SM_SKILLS_IDS,           ARSO.SkillsSubmodel),
-    (_SM_OPERATIONAL_DATA_IDS, ARSO.OperationalDataSubmodel),
-    (_SM_PARAMETERS_IDS,       ARSO.ParametersSubmodel),
-])
+def _load_mappings() -> tuple[dict[str, URIRef], dict[str, URIRef], dict[URIRef, URIRef]]:
+    """Load semantic ID mappings from YAML. Returns (submodel_map, sme_map, typed_links)."""
+    with open(_MAPPINGS_PATH, encoding="utf-8") as fh:
+        data = yaml.safe_load(fh)
 
-# SME-level semanticId -> ARSO subclass (all known variants)
-SME_TYPE_BY_SEMANTIC_ID: dict[str, URIRef] = _build_sid_map([
-    (_NP_MANUFACTURER_NAME_IDS,                ARSO.ManufacturerNameMLP),
-    (_NP_MANUFACTURER_PRODUCT_DESIGNATION_IDS, ARSO.ManufacturerProductDesignationMLP),
-    (_NP_CONTACT_INFORMATION_IDS,              ARSO.AddressInformationSMC),
-    (_NP_ORDER_CODE_IDS,                       ARSO.OrderCodeProperty),
-    (_NP_URI_OF_PRODUCT_IDS,                   ARSO.URIOfTheProductProperty),
-    (_NP_ADDRESS_STREET_IDS,                   ARSO.AddressStreetMLP),
-    (_NP_ADDRESS_ZIPCODE_IDS,                  ARSO.AddressZipcodeMLP),
-    (_NP_ADDRESS_CITY_TOWN_IDS,                ARSO.AddressCityTownMLP),
-    (_NP_ADDRESS_NATIONAL_CODE_IDS,            ARSO.AddressNationalCodeMLP),
-    (_HS_ARCHETYPE_IDS,                        ARSO.ArcheTypeProperty),
-    (_HS_ENTRY_NODE_IDS,                       ARSO.EntryNodeEntity),
-    (_HS_NODE_IDS,                             ARSO.NodeEntity),
-    (_HS_HAS_PART_IDS,                         ARSO.HasPartRelationship),
-    (_HS_IS_PART_OF_IDS,                       ARSO.IsPartOfRelationship),
-    (_HS_SAME_AS_IDS,                          ARSO.SameAsRelationship),
-    (_HS_BULK_COUNT_IDS,                       ARSO.BulkCountProperty),
-    (_AID_INTERFACE_IDS,                       ARSO.InterfaceSMC),
-    (_AID_ENDPOINT_METADATA_IDS,               ARSO.EndpointMetadataSMC),
-    (_AID_INTERACTION_METADATA_IDS,            ARSO.InteractionMetadataSMC),
-    (_CAP_SET_IDS,                             ARSO.CapabilitySetSMC),
-    (_CAP_CONTAINER_IDS,                       ARSO.CapabilityContainerSMC),
-    (_CAP_ELEMENT_IDS,                         ARSO.CapabilityElement),
-    (_CAP_REALIZED_BY_IDS,                     ARSO.CapabilityRealizedBySML),
-])
+    ns_map: dict[str, str] = data.get("namespaces", {})
 
-# Submodel subclass -> typed-link property on AAS shell (drives SHACL constraints)
-_TYPED_LINK_BY_SUBTYPE: dict[URIRef, URIRef] = {
-    ARSO.DigitalNameplateSubmodel:       ARSO.hasDigitalNameplateSubmodel,
-    ARSO.HierarchicalStructuresSubmodel: ARSO.hasHierarchicalStructuresSubmodel,
-    ARSO.AIDSubmodel:                    ARSO.hasAIDSubmodel,
-    ARSO.CapabilitiesSubmodel:           ARSO.hasCapabilitiesSubmodel,
-    ARSO.SkillsSubmodel:                 ARSO.hasSkillsSubmodel,
-    ARSO.OperationalDataSubmodel:        ARSO.hasOperationalDataSubmodel,
-    ARSO.ParametersSubmodel:             ARSO.hasParametersSubmodel,
-}
+    submodel_map: dict[str, URIRef] = {}
+    for entry in data.get("submodel_types", []):
+        target = _resolve_ns(ns_map, entry["type"])
+        for sid in entry.get("ids", []):
+            submodel_map[sid] = target
+
+    sme_map: dict[str, URIRef] = {}
+    for entry in data.get("sme_types", []):
+        target = _resolve_ns(ns_map, entry["type"])
+        for sid in entry.get("ids", []):
+            sme_map[sid] = target
+
+    typed_links: dict[URIRef, URIRef] = {}
+    for subtype_str, link_str in (data.get("typed_links", {}) or {}).items():
+        typed_links[_resolve_ns(ns_map, subtype_str)] = _resolve_ns(ns_map, link_str)
+
+    return submodel_map, sme_map, typed_links
+
+
+# Load at import time — fast single YAML parse.
+SUBMODEL_TYPE_BY_SEMANTIC_ID, SME_TYPE_BY_SEMANTIC_ID, _TYPED_LINK_BY_SUBTYPE = _load_mappings()
+
+
+def aas_json_to_graph(document: dict[str, Any], aas_type: str = "Resource") -> Graph:
+    """Convert an AAS Environment dict directly to an rdflib Graph (no disk I/O).
+
+    This is the preferred entry point for the validation pipeline.
+    """
+    return serialize(document, aas_type)
 
 # AAS modelType -> official AAS class IRI
 _AAS_CLASS_BY_MODEL_TYPE: dict[str, URIRef] = {
@@ -302,9 +182,7 @@ _VALUE_TYPE_TO_AAS_DATATYPE: dict[str, URIRef] = {
 }
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 
 def _safe_local(text: str) -> str:
     safe = re.sub(r"[^A-Za-z0-9_-]+", "-", text).strip("-")
@@ -333,9 +211,7 @@ def _mint_child_uri(parent: URIRef, idshort: str | None, index: int) -> URIRef:
     return URIRef(f"{parent}{sep}{seg}")
 
 
-# ---------------------------------------------------------------------------
 # Emitters
-# ---------------------------------------------------------------------------
 
 _BNODE_COUNTER = [0]
 
@@ -406,7 +282,6 @@ def _emit_property_value(g: Graph, node_uri: URIRef, node: dict) -> None:
             g.add((dt, RDF.type, AAS.DataTypeDefXsd))
         else:
             g.add((node_uri, P_PROP_VALUE_TYPE, Literal(str(value_type))))
-    # AAS metamodel: Property/value is always xs:string; valueType is a separate predicate.
     if value is not None and value != "":
         g.add((node_uri, P_PROP_VALUE, Literal(str(value), datatype=XSD.string)))
 
@@ -566,13 +441,7 @@ def _walk_element(g: Graph, parent_uri: URIRef, parent_container_prop: URIRef,
 
 
 def _apply_structural_typing(g: Graph) -> None:
-    """Add ARSO types that depend on element position/modelType rather than semanticId.
-
-    Called once after all elements are walked.  Covers three patterns:
-    1. aas:Capability instances → always arso:CapabilityElement
-    2. Children of arso:InterfaceSMC typed by idShort
-    3. Children of arso:EndpointMetadataSMC typed by idShort
-    """
+    """Add ARSO domain types inferred from element position/modelType rather than semanticId."""
     # 1. All Capability elements → arso:CapabilityElement
     for cap_uri in list(g.subjects(RDF.type, AAS.Capability)):
         g.add((cap_uri, RDF.type, ARSO.CapabilityElement))
@@ -713,9 +582,7 @@ def _walk_shell(g: Graph, shell: dict, submodels_by_id: dict[str, dict], aas_typ
             _walk_submodel(g, shell_uri, submodel)
 
 
-# ---------------------------------------------------------------------------
 # Public API
-# ---------------------------------------------------------------------------
 
 def serialize(document: dict, aas_type: str = "Resource") -> Graph:
     """Build an RDF graph from a parsed AAS JSON document.
